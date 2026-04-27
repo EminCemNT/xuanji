@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>玄机阁 · 我的</title>
+  <style>
+    :root {
+      --bg-deep:    #0d0e1f;
+      --bg-mid:     #1a1b3c;
+      --gold:       #d4af37;
+      --gold-light: #f0d060;
+      --moon:       #f5f0e8;
+      --text-main:  #e8e0f0;
+      --text-sub:   #a09ab8;
+      --glass-bg:   rgba(26, 27, 60, 0.65);
+      --glass-border: rgba(212, 175, 55, 0.25);
+      --radius:     16px;
+      --purple:     #7b5ea7;
+      --red:        #e85d75;
+      --green:      #4ecdc4;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+      background: var(--bg-deep); color: var(--text-main); min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ===== 星空背景 ===== */
+    .stars { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+    .star { position: absolute; width: 2px; height: 2px; background: #fff; border-radius: 50%; animation: twinkle 3s infinite alternate; }
+    @keyframes twinkle { 0%{opacity:0.2} 100%{opacity:0.8} }
+
+    /* ===== 顶部 ===== */
+    .header { position: relative; z-index: 1; text-align: center; padding: 24px 20px 12px; }
+    .header h1 { font-size: 22px; color: var(--gold); letter-spacing: 4px; margin-bottom: 4px; }
+    .header p { font-size: 13px; color: var(--text-sub); }
+    .back-btn { position: absolute; left: 16px; top: 24px; color: var(--gold); text-decoration: none; font-size: 20px; z-index: 2; }
+
+    /* ===== 页面容器 ===== */
+    .page { display: none; position: relative; z-index: 1; padding: 16px 20px 100px; animation: fadeUp 0.4s ease; }
+    .page.active { display: block; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ===== 用户卡片 ===== */
+    .user-card {
+      background: linear-gradient(135deg, rgba(123,94,167,0.3), rgba(212,175,55,0.15));
+      border: 1px solid var(--glass-border); border-radius: 20px;
+      padding: 24px 20px; text-align: center; position: relative; overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .user-card::before {
+      content:''; position:absolute; top:-50%; right:-30%;
+      width:200px; height:200px; border-radius:50%;
+      background:radial-gradient(circle,rgba(212,175,55,0.08),transparent);
+    }
+    .user-avatar {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--purple), var(--gold));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; margin: 0 auto 12px;
+      border: 3px solid var(--gold); box-shadow: 0 0 20px rgba(212,175,55,0.3);
+    }
+    .user-name { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    .user-level {
+      display:inline-block; background:linear-gradient(135deg,var(--gold),var(--gold-light));
+      color:var(--bg-deep); font-size:11px; font-weight:700; padding:2px 10px;
+      border-radius:10px; margin-bottom: 8px;
+    }
+    .user-stats {
+      display:flex; justify-content:center; gap:24px; margin-top:14px;
+    }
+    .stat-item { text-align:center; }
+    .stat-num { font-size:20px; font-weight:700; color:var(--gold); }
+    .stat-label { font-size:11px; color:var(--text-sub); margin-top:2px; }
+
+    /* ===== VIP 卡片 ===== */
+    .vip-banner {
+      background: linear-gradient(135deg, #2a1b4e 0%, #1a2a5e 40%, #1b2f4e 100%);
+      border: 1px solid var(--gold); border-radius: 18px; padding: 20px;
+      position: relative; overflow: hidden; cursor: pointer;
+      transition: all 0.3s; margin-bottom: 16px;
+    }
+    .vip-banner:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(212,175,55,0.25); }
+    .vip-badge-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .vip-badge {
+      background:linear-gradient(90deg,var(--gold),#c9a227);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      font-size:18px; font-weight:800; letter-spacing:2px;
+    }
+    .vip-tag {
+      background:linear-gradient(135deg,var(--gold),var(--gold-light)); color:var(--bg-deep);
+      font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px;
+    }
+    .vip-desc { font-size:13px; color:var(--text-sub); line-height:1.6; margin-bottom:12px; }
+    .vip-features { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+    .vf-item {
+      display:flex; align-items:center; gap:4px; font-size:12px; color:var(--moon);
+    }
+    .vf-item::before { content:'✦'; color:var(--gold); font-size:10px; }
+    .vip-price-row { display:flex; align-items:baseline; gap:8px; }
+    .vp-big { font-size:28px; font-weight:700; color:var(--gold-light); }
+    .vp-unit { font-size:13px; color:var(--text-sub); }
+    .vp-old { font-size:13px; color:var(--text-sub); text-decoration:line-through; opacity:0.5; }
+    .vip-btn {
+      width:100%; background:linear-gradient(135deg,var(--gold),var(--gold-light));
+      color:var(--bg-deep); border:none; border-radius:24px; padding:12px 0;
+      font-size:15px; font-weight:700; cursor:pointer; transition:all 0.3s; margin-top:12px;
+    }
+    .vip-btn:hover { transform:scale(1.02); box-shadow:0 4px 16px rgba(212,175,55,0.4); }
+    .vip-glow {
+      position:absolute; bottom:-60px; right:-60px; width:150px; height:150px;
+      border-radius:50%; background:radial-gradient(circle,rgba(212,175,55,0.15),transparent);
+    }
+
+    /* ===== 每日任务 ===== */
+    .section-title {
+      font-size:16px; font-weight:600; color:var(--moon); margin-bottom:12px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .daily-tasks { margin-bottom:20px; }
+    .task-list {}
+    .task-item {
+      background:var(--glass-bg); border:1px solid var(--glass-border);
+      border-radius:12px; padding:14px 16px; margin-bottom:10px;
+      display:flex; align-items:center; transition:all 0.2s;
+    }
+    .task-item.done { opacity:0.6; }
+    .task-icon { font-size:28px; margin-right:14px; min-width:36px; }
+    .task-info { flex:1; }
+    .task-name { font-size:14px; color:var(--text-main); }
+    .task-reward { font-size:12px; color:var(--gold); margin-top:2px; }
+    .task-btn {
+      background:linear-gradient(135deg,var(--purple),var(--purple-light)); color:#fff;
+      border:none; border-radius:16px; padding:6px 16px; font-size:12px;
+      cursor:pointer; white-space:nowrap; transition:all 0.2s;
+    }
+    .task-btn.done {
+      background:var(--green); color:var(--bg-deep); cursor:default;
+    }
+
+    /* ===== 积分商城 ===== */
+    .shop-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px; }
+    .shop-item {
+      background:var(--glass-bg); border:1px solid var(--glass-border);
+      border-radius:14px; padding:16px 12px; text-align:center; cursor:pointer;
+      transition:all 0.2s;
+    }
+    .shop-item:hover { border-color:var(--gold); transform:translateY(-2px); }
+    .shop-icon { font-size:32px; margin-bottom:6px; }
+    .shop-name { font-size:13px; color:var(--text-main); margin-bottom:4px; }
+    .shop-cost { font-size:13px; color:var(--gold); font-weight:600; }
+    .shop-cost::before { content:'💎 '; font-size:11px; }
+
+    /* ===== 历史记录 ===== */
+    .history-section { margin-bottom:20px; }
+    .hist-item {
+      background:var(--glass-bg); border:1px solid var(--glass-border);
+      border-radius:12px; padding:14px 16px; margin-bottom:8px;
+      display:flex; align-items:center; gap:12px; cursor:pointer; transition:all 0.2s;
+    }
+    .hist-item:hover { border-color:var(--gold); }
+    .hist-icon { font-size:28px; }
+    .hist-info { flex:1; }
+    .hist-type { font-size:14px; color:var(--text-main); }
+    .hist-detail { font-size:12px; color:var(--text-sub); margin-top:2px; }
+    .hist-time { font-size:11px; color:rgba(160,154,184,0.5); margin-top:2px; }
+    .hist-arrow { color:var(--text-sub); font-size:14px; }
+
+    /* ===== 功能菜单 ===== */
+    .menu-list { margin-bottom:20px; }
+    .menu-group {
+      background:var(--glass-bg); border:1px solid var(--glass-border);
+      border-radius:14px; overflow:hidden; margin-bottom:12px;
+    }
+    .menu-item {
+      display:flex; align-items:center; padding:14px 16px; cursor:pointer;
+      transition:background 0.2s; border-bottom:1px solid rgba(255,255,255,0.04);
+    }
+    .menu-item:last-child { border-bottom:none; }
+    .menu-item:hover { background:rgba(255,255,255,0.04); }
+    .menu-icon { font-size:20px; margin-right:14px; min-width:28px; }
+    .menu-label { flex:1; font-size:14px; color:var(--text-main); }
+    .menu-arrow { color:var(--text-sub); font-size:14px; }
+    .menu-badge {
+      background:var(--red); color:#fff; font-size:10px; font-weight:700;
+      padding:1px 7px; border-radius:8px; margin-right:8px;
+    }
+
+    /* ===== 充值弹窗 ===== */
+    .modal-overlay {
+      display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+      background:rgba(0,0,0,0.7); backdrop-filter:blur(4px);
+      z-index:1000; align-items:center; justify-content:center;
+      animation:fadeIn 0.2s ease;
+    }
+    .modal-overlay.show { display:flex; }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    .modal-content {
+      background:var(--bg-mid); border:1px solid var(--glass-border);
+      border-radius:20px; width:92%; max-width:360px; padding:24px;
+      position:relative; animation:modalIn 0.3s ease;
+    }
+    @keyframes modalIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
+    .modal-close {
+      position:absolute; top:14px; right:16px; color:var(--text-sub);
+      font-size:22px; cursor:pointer; background:none; border:none;
+    }
+    .modal-title { font-size:18px; color:var(--gold); text-align:center; margin-bottom:16px; font-weight:700; }
+
+    /* 充值选项 */
+    .recharge-options { margin-bottom:16px; }
+    .recharge-opt {
+      display:flex; align-items:center; justify-content:space-between;
+      background:var(--glass-bg); border:1px solid var(--glass-border);
+      border-radius:12px; padding:14px 16px; margin-bottom:10px; cursor:pointer;
+      transition:all 0.2s;
+    }
+    .recharge-opt:hover, .recharge-opt.selected { border-color:var(--gold); background:rgba(212,175,55,0.06); }
+    .ro-left { display:flex; align-items:center; gap:10px; }
+    .ro-coins { font-size:24px; }
+    .ro-info {}
+    .ro-num { font-size:15px; font-weight:600; color:var(--text-main); }
+    .ro-bonus { font-size:11px; color:var(--green); }
+    .ro-price { font-size:17px; font-weight:700; color:var(--gold); }
+    .recharge-opt.selected .ro-price { font-size:19px; }
+
+    /* Toast */
+    .toast {
+      position:fixed; top:80px; left:50%; transform:translateX(-50%);
+      background:rgba(123,94,167,0.95); color:#fff; padding:10px 24px;
+      border-radius:24px; font-size:13px; z-index:9999;
+      opacity:0; pointer-events:none; transition:opacity 0.3s; white-space:nowrap;
+    }
+    .toast.show { opacity:1; }
+
+    /* ===== 底部导航 ===== */
+    .bottom-nav {
+      position:fixed; bottom:0; left:0; right:0; z-index:100;
+      background:rgba(13,14,31,0.95); backdrop-filter:blur(12px);
+      border-top:1px solid var(--glass-border);
+      display:flex; justify-content:space-around; padding:8px 0;
+      padding-bottom:calc(8px + env(safe-area-inset-bottom));
+    }
+    .nav-item {
+      display:flex; flex-direction:column; align-items:center; text-decoration:none;
+      color:var(--text-sub); font-size:10px; gap:2px; padding:4px 12px; transition:color 0.2s;
+    }
+    .nav-item.active { color:var(--gold); }
+    .nav-icon { font-size:20px; }
+
+    /* ===== 空状态 ===== */
+    .empty-state { text-align:center; padding:40px 20px; color:var(--text-sub); }
+    .empty-state .es-icon { font-size:48px; margin-bottom:12px; opacity:0.4; }
+    .empty-state .es-text { font-size:14px; }
+
+    /* ===== 设置页面 ===== */
+    .setting-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 16px; background:var(--glass-bg);
+      border-bottom:1px solid rgba(255,255,255,0.04);
+    }
+    .setting-row:last-child { border-bottom:none; }
+    .setting-label { font-size:14px; color:var(--text-main); }
+    .setting-val { font-size:13px; color:var(--text-sub); }
+    .toggle-switch {
+      width:44px; height:24px; border-radius:12px; background:var(--text-sub); position:relative;
+      cursor:pointer; transition:background 0.3s;
+    }
+    .toggle-switch.on { background:var(--gold); }
+    .toggle-switch::after {
+      content:''; position:absolute; top:2px; left:2px; width:20px; height:20px;
+      border-radius:50%; background:#fff; transition:left 0.3s;
+    }
+    .toggle-switch.on::after { left:22px; }
+  </style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<div class="toast" id="toast"></div>
+
+<!-- 主页 -->
+<div class="header">
+  <a href="index.html" class="back-btn">←</a>
+  <h1>我的</h1>
+  <p>记录你的每一次探索</p>
+</div>
+
+<div class="page active" id="profilePage">
+
+  <!-- 用户信息 -->
+  <div class="user-card" id="userCard">
+    <div class="user-avatar">🌙</div>
+    <div class="user-name" id="userName">玄机旅人</div>
+    <span class="user-level" id="userLevel">Lv.1 探索者</span>
+    <div class="user-stats">
+      <div class="stat-item">
+        <div class="stat-num" id="statCoins">💎 0</div>
+        <div class="stat-label">灵石</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statReadings">0</div>
+        <div class="stat-label">占卜次数</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statDays">1</div>
+        <div class="stat-label">签到天数</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIP -->
+  <div class="vip-banner" onclick="showRecharge()">
+    <div class="vip-badge-row">
+      <span class="vip-badge">👑 玄机会员</span>
+      <span class="vip-tag">限时特惠</span>
+    </div>
+    <div class="vip-desc">解锁全部功能 · 无限占卜 · AI深度解读 · 专属客服</div>
+    <div class="vip-features">
+      <span class="vf-item">无限三牌阵</span>
+      <span class="vf-item">五牌阵半价</span>
+      <span class="vf-item">AI深度解读</span>
+      <span class="vf-item">MBTI深度报告</span>
+      <span class="vf-item">星座月运详情</span>
+      <span class="vf-item">专属头像框</span>
+    </div>
+    <div class="vip-price-row">
+      <span class="vp-big">¥19.9</span><span class="vp-unit">/月</span>
+      <span class="vp-old">原价 ¥39.9/月</span>
+    </div>
+    <button class="vip-btn" onclick="event.stopPropagation(); showRecharge()">立即开通</button>
+    <div class="vip-glow"></div>
+  </div>
+
+  <!-- 每日任务 -->
+  <div class="section-title">✦ 今日任务</div>
+  <div class="daily-tasks">
+    <div class="task-list" id="taskList"></div>
+  </div>
+
+  <!-- 灵石商城 -->
+  <div class="section-title">💎 灵石兑换</div>
+  <div class="shop-grid">
+    <div class="shop-item" onclick="buyItem('tarot3')">
+      <div class="shop-icon">🃏</div>
+      <div class="shop-name">三牌阵·免费券</div>
+      <div class="shop-cost">100</div>
+    </div>
+    <div class="shop-item" onclick="buyItem('tarot5')">
+      <div class="shop-icon">🃏🃏🃏</div>
+      <div class="shop-name">五牌阵·免费券</div>
+      <div class="shop-cost">300</div>
+    </div>
+    <div class="shop-item" onclick="buyItem('mbti')">
+      <div class="shop-icon">🧬</div>
+      <div class="shop-name">MBTI深度报告</div>
+      <div class="shop-cost">150</div>
+    </div>
+    <div class="shop-item" onclick="buyItem('tarotDeep')">
+      <div class="shop-icon">🔮</div>
+      <div class="shop-name">塔罗深度解读</div>
+      <div class="shop-cost">200</div>
+    </div>
+  </div>
+
+  <!-- 历史记录 -->
+  <div class="section-title">📜 占卜记录</div>
+  <div class="history-section" id="historyList">
+    <div class="empty-state">
+      <div class="es-icon">🌟</div>
+      <div class="es-text">还没有占卜记录<br>快去试试吧！</div>
+    </div>
+  </div>
+
+  <!-- 菜单 -->
+  <div class="menu-list">
+    <div class="menu-group">
+      <div class="menu-item" onclick="showToast('邀请功能开发中')">
+        <span class="menu-icon">💌</span>
+        <span class="menu-label">邀请好友</span>
+        <span style="font-size:12px;color:var(--green)">+50灵石/人</span>
+        <span class="menu-arrow">›</span>
+      </div>
+      <div class="menu-item" onclick="showToast('成就系统开发中')">
+        <span class="menu-icon">🏆</span>
+        <span class="menu-label">我的成就</span>
+        <span class="menu-arrow">›</span>
+      </div>
+      <div class="menu-item" onclick="showSettings()">
+        <span class="menu-icon">⚙️</span>
+        <span class="menu-label">设置</span>
+        <span class="menu-arrow">›</span>
+      </div>
+    </div>
+    <div class="menu-group">
+      <div class="menu-item" onclick="showToast('客服功能开发中')">
+        <span class="menu-icon">💬</span>
+        <span class="menu-label">联系客服</span>
+        <span class="menu-arrow">›</span>
+      </div>
+      <div class="menu-item" onclick="showToast('关于玄机阁\n版本 v1.0.0\n用心做好每一份指引')">
+        <span class="menu-icon">ℹ️</span>
+        <span class="menu-label">关于</span>
+        <span class="menu-arrow">›</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 充值弹窗 -->
+<div class="modal-overlay" id="rechargeModal">
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeRecharge()">✕</button>
+    <div class="modal-title">💎 充值灵石</div>
+    <div class="recharge-options" id="rechargeOpts">
+      <div class="recharge-opt selected" onclick="selectRecharge(this)">
+        <div class="ro-left"><span class="ro-coins">💎</span><div class="ro-info"><div class="ro-num">60 灵石</div><div class="ro-bonus">首充送10</div></div></div>
+        <div class="ro-price">¥1</div>
+      </div>
+      <div class="recharge-opt" onclick="selectRecharge(this)">
+        <div class="ro-left"><span class="ro-coins">💎💎</span><div class="ro-info"><div class="ro-num">320 灵石</div><div class="ro-bonus">送80</div></div></div>
+        <div class="ro-price">¥5</div>
+      </div>
+      <div class="recharge-opt" onclick="selectRecharge(this)">
+        <div class="ro-left"><span class="ro-coins">💎💎💎</span><div class="ro-info"><div class="ro-num">680 灵石</div><div class="ro-bonus">送220</div></div></div>
+        <div class="ro-price">¥10</div>
+      </div>
+      <div class="recharge-opt" onclick="selectRecharge(this)">
+        <div class="ro-left"><span class="ro-coins">👑</span><div class="ro-info"><div class="ro-num">2180 灵石</div><div class="ro-bonus">送680 + 月卡</div></div></div>
+        <div class="ro-price">¥29.9</div>
+      </div>
+    </div>
+    <button class="vip-btn" onclick="doRecharge()">确认充值</button>
+  </div>
+</div>
+
+<!-- 底部导航 -->
+<nav class="bottom-nav">
+  <a href="index.html" class="nav-item">
+    <span class="nav-icon">🏠</span><span class="nav-label">首页</span>
+  </a>
+  <a href="horoscope.html" class="nav-item">
+    <span class="nav-icon">♈</span><span class="nav-label">星座</span>
+  </a>
+  <a href="mbti.html" class="nav-item">
+    <span class="nav-icon">🧠</span><span class="nav-label">MBTI</span>
+  </a>
+  <a href="tarot.html" class="nav-item">
+    <span class="nav-icon">🔮</span><span class="nav-label">塔罗</span>
+  </a>
+  <a href="profile.html" class="nav-item active">
+    <span class="nav-icon">👤</span><span class="nav-label">我的</span>
+  </a>
+</nav>
+
+<script>
+// ===== 星空 =====
+(function(){
+  const c=document.getElementById('stars');
+  for(let i=0;i<60;i++){
+    const s=document.createElement('div'); s.className='star';
+    s.style.left=Math.random()*100+'%'; s.style.top=Math.random()*100+'%';
+    s.style.animationDelay=Math.random()*3+'s'; s.style.animationDuration=(2+Math.random()*3)+'s';
+    c.appendChild(s);
+  }
+})();
+
+// ===== 数据管理（localStorage）=====
+const DB = {
+  get(key) { try{return JSON.parse(localStorage.getItem('xj_'+key))||null}catch(e){return null;} },
+  set(key,val){ localStorage.setItem('xj_'+key,JSON.stringify(val)); },
+  // 初始化默认值
+  init(){
+    if(!this.get('user')){
+      this.set('user',{ name:'玄机旅人', level:1, avatar:'🌙', coins:0 });
+    }
+    if(!this.get('tasks')) this.setDefaultTasks();
+    if(!this.get('history')) this.set('history',[]);
+    if(!this.get('checkin')) this.set('checkin',{ last:'', days:0, streak:0 });
+    this.renderAll();
+  },
+  setDefaultTasks(){
+    this.set('tasks',[
+      { id:'checkin',   icon:'📅', name:'每日签到',     reward:10, done:false },
+      { id:'tarot1',    icon:'🃏', name:'完成一次单牌', reward:5,  done:false },
+      { id:'horoscope', icon:'⭐', name:'查看今日运势', reward:5,  done:false },
+      { id:'mbti',      icon:'🧬', name:'完成MBTI测试',reward:20, done:false },
+      { id:'share',     icon:'📤', name:'分享一次结果',  reward:15, done:false },
+    ]);
+  },
+};
+
+// ===== 任务系统 =====
+function renderTasks() {
+  const list = document.getElementById('taskList');
+  const tasks = DB.get('tasks') || [];
+  list.innerHTML = '';
+  tasks.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'task-item' + (t.done ? ' done' : '');
+    div.innerHTML = `
+      <span class="task-icon">${t.icon}</span>
+      <div class="task-info">
+        <div class="task-name">${t.name}</div>
+        <div class="task-reward">+${t.reward} 💎</div>
+      </div>
+      <button class="task-btn ${t.done?'done':''}" onclick="claimTask('${t.id}',this)">
+        ${t.done?'已领取':'领取'}
+      </button>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function claimTask(id, btn){
+  const tasks = DB.get('tasks');
+  const task = tasks.find(t=>t.id===id);
+  if(!task || task.done) return;
+  
+  // 标记完成并奖励
+  task.done = true;
+  const user = DB.get('user');
+  user.coins += task.reward;
+  DB.set('user', user);
+  DB.set('tasks', tasks);
+
+  btn.textContent='已领取';
+  btn.classList.add('done');
+  btn.parentElement.classList.add('done');
+  
+  showToast(`获得 ${task.reward} 灵石 ✨`);
+  updateStats();
+}
+
+// ===== 统计更新 =====
+function updateStats() {
+  const user = DB.get('user');
+  document.getElementById('statCoins').textContent = '💎 ' + (user.coins || 0).toLocaleString();
+  const history = DB.get('history') || [];
+  document.getElementById('statReadings').textContent = history.length;
+  const ci = DB.get('checkin');
+  document.getElementById('statDays').textContent = ci ? ci.days : 0;
+
+  // 升级检测
+  const newLevel = calcLevel(user.coins, history.length);
+  if(newLevel !== user.level) {
+    user.level = newLevel;
+    DB.set('user', user);
+    showToast(`🎉 升级到 Lv.${newLevel} ${levelName(newLevel)}！`);
+    document.getElementById('userLevel').textContent = `Lv.${newLevel} ${levelName(newLevel)}`;
+  }
+}
+
+function calcLevel(coins, readings) {
+  let lv=1;
+  if(readings>=5 && coins>=100) lv=2;
+  if(readings>=15 && coins>=500) lv=3;
+  if(readings>=30 && coins>=1200) lv=4;
+  if(readings>=60 && coins>=3000) lv=5;
+  return lv;
+}
+function levelName(lv) {
+  const names=['','探索者','寻道者','洞察者','预言师','大法师'];
+  return names[lv]||'传奇';
+}
+
+// ===== 历史记录 =====
+function renderHistory() {
+  const container = document.getElementById('historyList');
+  const history = DB.get('history') || [];
+  if(history.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="es-icon">🌟</div><div class="es-text">还没有占卜记录<br>快去试试吧！</div></div>`;
+    return;
+  }
+  container.innerHTML = '';
+  history.slice().reverse().forEach(h => {
+    const div = document.createElement('div');
+    div.className = 'hist-item';
+    div.onclick = () => showToast(`查看${h.type}详情（开发中）`);
+    div.innerHTML = `
+      <span class="hist-icon">${h.icon}</span>
+      <div class="hist-info">
+        <div class="hist-type">${h.type}</div>
+        <div class="hist-detail">${h.detail||''}</div>
+        <div class="hist-time">${h.time}</div>
+      </div>
+      <span class="hist-arrow">›</span>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// ===== 商城购买 =====
+function buyItem(itemId){
+  const items = {
+    tarot3:   {name:'三牌阵·免费券', cost:100},
+    tarot5:   {name:'五牌阵·免费券', cost:300},
+    mbti:     {name:'MBTI深度报告', cost:150},
+    tarotDeep:{name:'塔罗深度解读', cost:200}
+  };
+  const item = items[itemId];
+  if(!item) return;
+  const user = DB.get('user');
+  if(user.coins < item.cost){
+    showToast(`灵石不足，还需要 ${item.cost - user.coins} 💎\n点击上方VIP或充值按钮补充`);
+    showRecharge();
+    return;
+  }
+  user.coins -= item.cost;
+  DB.set('user', user);
+  // 记录已购
+  const purchased = DB.get('purchased') || {};
+  purchased[itemId] = (purchased[itemId]||0) + 1;
+  DB.set('purchased', purchased);
+  showToast(`购买成功：${item.name}\n可在对应模块中使用 ✨`);
+  updateStats();
+}
+
+// ===== 充值弹窗 =====
+function showRecharge() { document.getElementById('rechargeModal').classList.add('show'); }
+function closeRecharge(){ document.getElementById('rechargeModal').classList.remove('show'); }
+let selectedRechargeIdx = 0;
+
+function selectRecharge(el) {
+  document.querySelectorAll('.recharge-opt').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedRechargeIdx = [...el.parentElement.children].indexOf(el);
+}
+
+const RECHARGE_DATA = [
+  {coins:70, price:'¥1'},    // 60+10
+  {coins:400, price:'¥5'},   // 320+80
+  {coins:900, price:'¥10'},  // 680+220
+  {coins:2860, price:'¥29.9'} // 2180+680 + month
+];
+
+function doRecharge() {
+  const data = RECHARGE_DATA[selectedRechargeIdx];
+  const user = DB.get('user');
+  user.coins += data.coins;
+  DB.set('user', user);
+  closeRecharge();
+  showToast(`充值成功！获得 ${data.coins} 灵石 🎉`);
+  updateStats();
+
+  // 记录充值
+  const history = DB.get('history')||[];
+  history.push({type:'💎 灵石充值',icon:'💎',detail:`${data.coins} 灵石 (${data.price})`,time:formatTime()});
+  DB.set('history',history);
+  renderHistory();
+}
+
+// ===== 设置 =====
+function showSettings() {
+  showToast('设置页面开发中：\n• 推送通知开关\n• 清除缓存\n• 隐私政策\n• 用户协议\n• 注销账号');
+}
+
+// ===== Toast =====
+let toastTimer=null;
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ===== 工具函数 =====
+function formatTime() {
+  const d=new Date();
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+// ===== 全局初始化 =====
+function renderAll() {
+  const user = DB.get('user')||{};
+  document.getElementById('userName').textContent=user.name||'玄机旅人';
+  document.getElementById('userLevel').textContent=`Lv.${user.level||1} ${levelName(user.level||1)}`;
+  if(user.avatar) document.querySelector('.user-avatar').textContent=user.avatar;
+  updateStats();
+  renderTasks();
+  renderHistory();
+}
+
+// ===== 全局API供其他页面调用 =====
+window.XJ = {
+  addHistory(type, icon, detail){
+    const h=DB.get('history')||[];
+    h.push({type,icon,detail,time:formatTime()});
+    DB.set('history',h);
+  },
+  markTask(taskId){
+    // 外部模块标记任务进度（不自动领奖）
+    const tasks=DB.get('tasks')||[];
+    const t=tasks.find(x=>x.id===taskId);
+    if(t&&!t.done){ /* 可做标记 */ }
+  },
+  completeTask(taskId){
+    // 自动完成任务但不发奖（等用户手动领取）
+    const tasks=DB.get('tasks')||[];
+    const t=tasks.find(x=>x.id===taskId);
+    if(t)t.done=false; // 保持未领取状态但标记为可领取
+    DB.set('tasks',tasks);
+  },
+  getCoins(){return(DB.get('user')||{}).coins||0;},
+  useCoins(amount){
+    const u=DB.get('user')||{};
+    if(u.coins<amount)return false;
+    u.coins-=amount;
+    DB.set('user',u);
+    return true;
+  },
+  isVip(){return false;}, // TODO: 接入支付后实现
+  hasPurchased(itemId){return(DB.get('purchased')||{})[itemId]>0;}
+};
+
+DB.init();
+</script>
+</body>
+</html>
