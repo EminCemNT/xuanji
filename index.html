@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>玄机阁 · 每天5分钟，读懂今天的自己</title>
+  <style>
+    /* ===== 全局变量 ===== */
+    :root {
+      --bg-deep:    #0d0e1f;
+      --bg-mid:     #1a1b3c;
+      --gold:       #d4af37;
+      --gold-light: #f0d060;
+      --moon:       #f5f0e8;
+      --text-main:  #e8e0f0;
+      --text-sub:   #a09ab8;
+      --glass-bg:   rgba(26, 27, 60, 0.65);
+      --glass-border: rgba(212, 175, 55, 0.25);
+      --radius:     16px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ===== 星空背景 ===== */
+    #stars-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .page-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 0 16px 80px;
+    }
+
+    /* ===== 顶部导航 ===== */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 0 12px;
+    }
+    .logo {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .logo span { font-size: 11px; font-weight: 400; display: block; color: var(--text-sub); -webkit-text-fill-color: var(--text-sub); letter-spacing: 1px; }
+    .topbar-right { display: flex; gap: 16px; align-items: center; }
+    .topbar-icon { font-size: 20px; cursor: pointer; opacity: 0.7; transition: opacity .2s; }
+    .topbar-icon:hover { opacity: 1; }
+
+    /* ===== 毛玻璃卡片 ===== */
+    .glass-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    /* ===== Hero 黄历卡 ===== */
+    .hero-card {
+      background: linear-gradient(135deg, rgba(26,27,60,0.85) 0%, rgba(40,20,60,0.85) 100%);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      backdrop-filter: blur(16px);
+      padding: 24px 20px 20px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-card::before {
+      content: "☽";
+      position: absolute;
+      right: 20px; top: 16px;
+      font-size: 64px;
+      opacity: 0.07;
+      line-height: 1;
+    }
+
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .hero-date-cn { font-size: 13px; color: var(--gold); letter-spacing: 1px; margin-bottom: 4px; }
+    .hero-date-big { font-size: 36px; font-weight: 700; line-height: 1; color: var(--moon); }
+    .hero-date-week { font-size: 13px; color: var(--text-sub); margin-top: 4px; }
+    .hero-lunar {
+      text-align: right;
+      background: rgba(212,175,55,0.1);
+      border: 1px solid rgba(212,175,55,0.2);
+      border-radius: 10px;
+      padding: 8px 12px;
+    }
+    .hero-lunar-main { font-size: 15px; color: var(--gold); font-weight: 600; }
+    .hero-lunar-sub { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+
+    .hero-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--glass-border), transparent);
+      margin: 16px 0;
+    }
+
+    /* 宜忌标签 */
+    .yi-ji-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .yi-label, .ji-label {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: 1px;
+    }
+    .yi-label { background: rgba(80,180,100,0.15); color: #6ddc8b; border: 1px solid rgba(80,180,100,0.25); }
+    .ji-label { background: rgba(220,80,80,0.12); color: #e88080; border: 1px solid rgba(220,80,80,0.2); }
+
+    .yi-ji-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .tag {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      cursor: default;
+    }
+    .tag-yi { background: rgba(80,180,100,0.12); color: #9de8b0; border: 1px solid rgba(80,180,100,0.2); }
+    .tag-ji { background: rgba(220,80,80,0.1); color: #e8a0a0; border: 1px solid rgba(220,80,80,0.15); }
+
+    /* 吉日详情行 */
+    .lucky-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .lucky-item {
+      background: rgba(212,175,55,0.07);
+      border: 1px solid rgba(212,175,55,0.15);
+      border-radius: 10px;
+      padding: 10px 6px;
+      text-align: center;
+    }
+    .lucky-icon { font-size: 18px; margin-bottom: 4px; }
+    .lucky-key { font-size: 10px; color: var(--text-sub); margin-bottom: 2px; }
+    .lucky-val { font-size: 13px; color: var(--gold); font-weight: 600; }
+
+    .hero-btn {
+      display: block;
+      width: 100%;
+      margin-top: 16px;
+      padding: 11px;
+      text-align: center;
+      background: linear-gradient(135deg, rgba(212,175,55,0.15), rgba(212,175,55,0.08));
+      border: 1px solid rgba(212,175,55,0.3);
+      border-radius: 10px;
+      color: var(--gold);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all .2s;
+      text-decoration: none;
+    }
+    .hero-btn:hover { background: rgba(212,175,55,0.22); border-color: rgba(212,175,55,0.5); }
+
+    /* ===== 节气提示条 ===== */
+    .jieqi-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(90deg, rgba(212,175,55,0.08), rgba(212,175,55,0.03));
+      border: 1px solid rgba(212,175,55,0.15);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+    .jieqi-dot { width: 6px; height: 6px; background: var(--gold); border-radius: 50%; flex-shrink: 0; }
+    .jieqi-bar strong { color: var(--gold); }
+
+    /* ===== 快捷功能入口 ===== */
+    .section-title {
+      font-size: 13px;
+      color: var(--text-sub);
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--glass-border);
+    }
+
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .quick-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      padding: 18px 16px;
+      cursor: pointer;
+      transition: all .2s;
+      text-decoration: none;
+      display: block;
+      position: relative;
+      overflow: hidden;
+    }
+    .quick-card:hover {
+      border-color: rgba(212,175,55,0.45);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    .quick-card .qc-icon { font-size: 28px; margin-bottom: 8px; display: block; }
+    .quick-card .qc-title { font-size: 16px; font-weight: 600; color: var(--moon); margin-bottom: 4px; }
+    .quick-card .qc-desc { font-size: 11px; color: var(--text-sub); line-height: 1.5; }
+    .quick-card .qc-badge {
+      position: absolute;
+      top: 12px; right: 12px;
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 20px;
+      background: rgba(212,175,55,0.15);
+      color: var(--gold);
+      border: 1px solid rgba(212,175,55,0.25);
+    }
+
+    /* ===== 今日每日一牌（预告区） ===== */
+    .tarot-preview {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: linear-gradient(135deg, rgba(80,40,120,0.4), rgba(26,27,60,0.7));
+      border: 1px solid rgba(150,80,200,0.2);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 16px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .tarot-preview:hover { border-color: rgba(150,80,200,0.45); transform: translateY(-1px); }
+    .tarot-card-thumb {
+      width: 52px; height: 80px;
+      background: linear-gradient(135deg, #2a1060, #4a20a0);
+      border-radius: 8px;
+      border: 1px solid rgba(150,80,200,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(80,40,120,0.4);
+    }
+    .tarot-info { flex: 1; }
+    .tarot-label { font-size: 11px; color: #b080e0; margin-bottom: 4px; letter-spacing: 1px; }
+    .tarot-name { font-size: 18px; font-weight: 700; color: var(--moon); margin-bottom: 6px; }
+    .tarot-hint { font-size: 12px; color: var(--text-sub); line-height: 1.6; }
+    .tarot-arrow { font-size: 18px; color: var(--text-sub); flex-shrink: 0; }
+
+    /* ===== 底部导航 ===== */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      background: rgba(13,14,31,0.92);
+      border-top: 1px solid var(--glass-border);
+      backdrop-filter: blur(16px);
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 0 12px;
+      z-index: 100;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      opacity: 0.5;
+      transition: opacity .2s;
+      padding: 4px 16px;
+    }
+    .nav-item.active { opacity: 1; }
+    .nav-item .nav-icon { font-size: 22px; }
+    .nav-item .nav-label { font-size: 10px; color: var(--text-sub); }
+    .nav-item.active .nav-label { color: var(--gold); }
+
+    /* ===== 黄历详情弹层 ===== */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      backdrop-filter: blur(4px);
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-sheet {
+      width: 100%;
+      max-width: 480px;
+      background: #131428;
+      border-top: 1px solid var(--glass-border);
+      border-radius: 20px 20px 0 0;
+      padding: 0 20px 32px;
+      max-height: 85vh;
+      overflow-y: auto;
+      animation: slideUp .3s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    .modal-handle {
+      width: 36px; height: 4px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px;
+      margin: 12px auto 20px;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--moon);
+      margin-bottom: 4px;
+    }
+    .modal-subtitle { font-size: 12px; color: var(--text-sub); margin-bottom: 20px; }
+
+    .detail-section { margin-bottom: 20px; }
+    .detail-section h4 {
+      font-size: 12px;
+      color: var(--gold);
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(212,175,55,0.15);
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .detail-tag {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 10px 8px;
+      text-align: center;
+      font-size: 13px;
+    }
+    .detail-tag.yi { border-color: rgba(80,180,100,0.2); color: #9de8b0; }
+    .detail-tag.ji { border-color: rgba(220,80,80,0.15); color: #e8a0a0; }
+
+    .shens-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .shen-tag {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(212,175,55,0.08);
+      color: var(--gold);
+      border: 1px solid rgba(212,175,55,0.2);
+    }
+    .sha-tag {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(220,80,80,0.08);
+      color: #e88080;
+      border: 1px solid rgba(220,80,80,0.15);
+    }
+
+    .ganzhi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .ganzhi-item {
+      background: rgba(212,175,55,0.05);
+      border: 1px solid rgba(212,175,55,0.12);
+      border-radius: 10px;
+      padding: 10px 6px;
+      text-align: center;
+    }
+    .ganzhi-label { font-size: 10px; color: var(--text-sub); margin-bottom: 4px; }
+    .ganzhi-val { font-size: 15px; color: var(--moon); font-weight: 600; }
+
+    .modal-close {
+      width: 100%;
+      padding: 13px;
+      background: rgba(212,175,55,0.1);
+      border: 1px solid rgba(212,175,55,0.25);
+      border-radius: 12px;
+      color: var(--gold);
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background .2s;
+    }
+    .modal-close:hover { background: rgba(212,175,55,0.2); }
+
+    /* ===== 动效 ===== */
+    .fade-in {
+      animation: fadeIn .5s ease both;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 延迟 */
+    .delay-1 { animation-delay: .1s; }
+    .delay-2 { animation-delay: .2s; }
+    .delay-3 { animation-delay: .3s; }
+    .delay-4 { animation-delay: .4s; }
+  </style>
+</head>
+<body>
+
+<!-- 星空动态背景 -->
+<canvas id="stars-canvas"></canvas>
+
+<div class="page-wrap">
+
+  <!-- 顶部导航 -->
+  <div class="topbar fade-in">
+    <div class="logo">
+      玄机阁
+      <span>XuanJi · 每天5分钟，读懂今天的自己</span>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-icon">🔔</span>
+      <span class="topbar-icon">👤</span>
+    </div>
+  </div>
+
+  <!-- 节气提示 -->
+  <div class="jieqi-bar fade-in delay-1" id="jieqi-bar">
+    <div class="jieqi-dot"></div>
+    <span>距下一个节气 <strong id="next-jieqi">谷雨</strong> 还有 <strong id="jieqi-days">3</strong> 天 · 谷雨时节，雨生百谷</span>
+  </div>
+
+  <!-- Hero 黄历卡 -->
+  <div class="hero-card fade-in delay-1">
+    <div class="hero-top">
+      <div>
+        <div class="hero-date-cn" id="date-cn">🗓 今日黄历</div>
+        <div class="hero-date-big" id="date-big">--</div>
+        <div class="hero-date-week" id="date-week">--</div>
+      </div>
+      <div class="hero-lunar">
+        <div class="hero-lunar-main" id="lunar-main">农历</div>
+        <div class="hero-lunar-sub" id="lunar-sub">--年--月--日</div>
+        <div class="hero-lunar-sub" id="lunar-ganzhi">--年 --月 --日</div>
+      </div>
+    </div>
+
+    <div class="hero-divider"></div>
+
+    <!-- 宜 -->
+    <div class="yi-ji-row">
+      <span class="yi-label">宜</span>
+    </div>
+    <div class="yi-ji-tags" id="yi-tags"></div>
+
+    <!-- 忌 -->
+    <div class="yi-ji-row" style="margin-top:8px">
+      <span class="ji-label">忌</span>
+    </div>
+    <div class="yi-ji-tags" id="ji-tags"></div>
+
+    <!-- 吉日数据 -->
+    <div class="lucky-row">
+      <div class="lucky-item">
+        <div class="lucky-icon">🎨</div>
+        <div class="lucky-key">吉色</div>
+        <div class="lucky-val" id="lucky-color">--</div>
+      </div>
+      <div class="lucky-item">
+        <div class="lucky-icon">🔢</div>
+        <div class="lucky-key">吉数</div>
+        <div class="lucky-val" id="lucky-num">--</div>
+      </div>
+      <div class="lucky-item">
+        <div class="lucky-icon">🧭</div>
+        <div class="lucky-key">贵人方</div>
+        <div class="lucky-val" id="lucky-dir">--</div>
+      </div>
+      <div class="lucky-item">
+        <div class="lucky-icon">🌙</div>
+        <div class="lucky-key">月相</div>
+        <div class="lucky-val" id="moon-phase">--</div>
+      </div>
+    </div>
+
+    <a class="hero-btn" id="detail-btn">查看完整黄历 →</a>
+  </div>
+
+  <!-- 每日塔罗预告 -->
+  <div class="tarot-preview fade-in delay-2" id="tarot-card">
+    <div class="tarot-card-thumb" id="tarot-thumb">🃏</div>
+    <div class="tarot-info">
+      <div class="tarot-label">✦ 今日塔罗</div>
+      <div class="tarot-name" id="tarot-name">正在抽取...</div>
+      <div class="tarot-hint" id="tarot-hint">点击查看今日牌义与建议</div>
+    </div>
+    <div class="tarot-arrow">›</div>
+  </div>
+
+  <!-- 功能入口 -->
+  <div class="section-title fade-in delay-3">探索更多</div>
+  <div class="quick-grid fade-in delay-3">
+    <a class="quick-card" href="#">
+      <span class="qc-badge">免费</span>
+      <span class="qc-icon">⭐</span>
+      <div class="qc-title">星座运势</div>
+      <div class="qc-desc">12星座日/周/月运势<br>爱情·事业·财运</div>
+    </a>
+    <a class="quick-card" href="#">
+      <span class="qc-badge">热门</span>
+      <span class="qc-icon">🧬</span>
+      <div class="qc-title">MBTI 测试</div>
+      <div class="qc-desc">16型人格完整版<br>生成精美分享海报</div>
+    </a>
+    <a class="quick-card" href="#">
+      <span class="qc-badge">付费</span>
+      <span class="qc-icon">🔮</span>
+      <div class="qc-title">塔罗占卜</div>
+      <div class="qc-desc">多种专题牌阵<br>AI 智能深度解读</div>
+    </a>
+    <a class="quick-card" href="#">
+      <span class="qc-badge">免费</span>
+      <span class="qc-icon">🐉</span>
+      <div class="qc-title">择吉黄历</div>
+      <div class="qc-desc">婚期·开业·搬家<br>自动筛选吉日</div>
+    </a>
+  </div>
+
+</div><!-- end page-wrap -->
+
+<!-- 底部导航 -->
+<nav class="bottom-nav">
+  <div class="nav-item active">
+    <span class="nav-icon">🏠</span>
+    <span class="nav-label">首页</span>
+  </div>
+  <div class="nav-item">
+    <span class="nav-icon">🗓</span>
+    <span class="nav-label">黄历</span>
+  </div>
+  <div class="nav-item">
+    <span class="nav-icon">🔮</span>
+    <span class="nav-label">占卜</span>
+  </div>
+  <div class="nav-item">
+    <span class="nav-icon">👤</span>
+    <span class="nav-label">我的</span>
+  </div>
+</nav>
+
+<!-- 黄历详情弹层 -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title">今日黄历详解</div>
+    <div class="modal-subtitle" id="modal-subtitle"></div>
+
+    <!-- 干支 -->
+    <div class="detail-section">
+      <h4>今日干支</h4>
+      <div class="ganzhi-row">
+        <div class="ganzhi-item"><div class="ganzhi-label">年柱</div><div class="ganzhi-val" id="m-year">--</div></div>
+        <div class="ganzhi-item"><div class="ganzhi-label">月柱</div><div class="ganzhi-val" id="m-month">--</div></div>
+        <div class="ganzhi-item"><div class="ganzhi-label">日柱</div><div class="ganzhi-val" id="m-day">--</div></div>
+        <div class="ganzhi-item"><div class="ganzhi-label">值日星</div><div class="ganzhi-val" id="m-star">--</div></div>
+      </div>
+    </div>
+
+    <!-- 宜 -->
+    <div class="detail-section">
+      <h4>宜 · 适合今日进行</h4>
+      <div class="detail-grid" id="modal-yi"></div>
+    </div>
+
+    <!-- 忌 -->
+    <div class="detail-section">
+      <h4>忌 · 今日不宜</h4>
+      <div class="detail-grid" id="modal-ji"></div>
+    </div>
+
+    <!-- 吉神 -->
+    <div class="detail-section">
+      <h4>吉神 / 凶煞</h4>
+      <div class="shens-row" id="modal-shens"></div>
+    </div>
+
+    <button class="modal-close" id="modal-close">收起</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   农历计算核心（简版，基于查表法）
+   ============================================================ */
+const LUNAR_INFO = [
+  0x04AE53,0x0A5748,0x5526BD,0x0D2650,0x0D9544,0x46AAB9,0x056A4D,0x09AD42,0x24AEB6,0x04AE4A,
+  0x6AA550,0x0B5544,0x0AD550,0x515B45,0x056A4D,0x0A6D42,0x352BB8,0x02BB4D,0x095742,0x4497B7,
+  0x04974D,0x0A4DB4,0x6A4B41,0x0AD148,0x56D4FD,0x02DA50,0x0D5649,0x402D4E,0x0D2544,0x0D6...
+];
+
+// 天干地支
+const TIANGAN = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
+const DIZHI   = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+const SHENGXIAO = ["鼠","牛","虎","兔","龙","蛇","马","羊","猴","鸡","狗","猪"];
+const MONTHS_CN = ["正","二","三","四","五","六","七","八","九","十","冬","腊"];
+const DAYS_CN   = [
+  "初一","初二","初三","初四","初五","初六","初七","初八","初九","初十",
+  "十一","十二","十三","十四","十五","十六","十七","十八","十九","二十",
+  "廿一","廿二","廿三","廿四","廿五","廿六","廿七","廿八","廿九","三十"
+];
+
+// 简易农历（用固定表近似计算）
+function getLunarDate(date) {
+  // 以2026年为基准，用近似算法
+  const baseDate  = new Date(2026, 0, 29); // 2026年春节（大年初一）
+  const diff = Math.floor((date - baseDate) / 86400000);
+  let lunarMonth = 1, lunarDay = 1 + diff;
+  const monthDays = [30,29,30,29,30,30,29,30,29,30,30,29]; // 2026丙午年月份天数近似
+  let m = 0;
+  let remaining = diff;
+  while (remaining >= monthDays[m]) {
+    remaining -= monthDays[m];
+    m++;
+    if (m >= monthDays.length) { m = 0; }
+  }
+  lunarMonth = m + 1;
+  lunarDay   = remaining + 1;
+
+  // 干支年：2026是丙午年
+  const yearIdx = (2026 - 4) % 10;
+  const yearZhi  = (2026 - 4) % 12;
+  const yearGZ   = TIANGAN[yearIdx] + DIZHI[yearZhi];
+  const sx        = SHENGXIAO[yearZhi];
+
+  // 月干支（近似）
+  const monthTG = TIANGAN[(m * 2 + 2) % 10];
+  const monthDZ = DIZHI[(m + 2) % 12];
+
+  // 日干支（以2026-01-01=丁卯日起算）
+  const base2026 = new Date(2026, 0, 1);
+  const dayDiff  = Math.floor((date - base2026) / 86400000);
+  const dayTG    = TIANGAN[(3 + dayDiff) % 10]; // 2026-01-01 天干偏移=3(丁)
+  const dayDZ    = DIZHI[(3 + dayDiff) % 12];   // 地支偏移=3(卯)
+
+  return {
+    lunarMonth: MONTHS_CN[Math.min(m, 11)] + "月",
+    lunarDay:   DAYS_CN[Math.min(lunarDay - 1, 29)],
+    yearGZ, sx,
+    monthGZ: monthTG + monthDZ,
+    dayGZ:   dayTG + dayDZ
+  };
+}
+
+/* ============================================================
+   黄历数据库（基于日期哈希生成，保证每天稳定）
+   ============================================================ */
+const YI_POOL = ["出行","嫁娶","开业","签约","搬家","祈福","纳财","裁衣","会友","求医","置产","动土","开工","求职","宴请","剃头","安葬","立约"];
+const JI_POOL = ["动土","破土","行丧","开仓","出财","伐木","作梁","安床","安葬","嫁娶","入宅","修造","开市","乘船","针灸","词讼"];
+const COLORS  = ["玫瑰金","靛蓝","星白","翠绿","绛红","明黄","紫罗兰","湖蓝","暮橙","银灰"];
+const DIRS    = ["正东","正南","正西","正北","东南","西南","东北","西北"];
+const STARS   = ["贪狼","巨门","禄存","文曲","廉贞","武曲","破军","左辅","右弼"];
+const JISHENS = ["天德","月德","岁合","五合","圣心","青龙","明堂","金匮","宝光","玉堂"];
+const XIONGSHAS = ["天刑","朱雀","勾陈","白虎","天牢","玄武"];
+const MOON_PHASES = ["新月","蛾眉月","上弦月","盈凸月","满月","亏凸月","下弦月","残月"];
+
+function hashDay(date) {
+  return date.getFullYear() * 10000 + (date.getMonth()+1) * 100 + date.getDate();
+}
+
+function seededRand(seed) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 0xffffffff;
+  };
+}
+
+function getDayData(date) {
+  const seed = hashDay(date);
+  const rand = seededRand(seed);
+
+  // 宜：3-5项
+  const yiCount = 3 + Math.floor(rand() * 3);
+  const yi = [];
+  const yiPool = [...YI_POOL].sort(() => rand() - 0.5);
+  for (let i = 0; i < yiCount; i++) yi.push(yiPool[i]);
+
+  // 忌：2-4项
+  const jiCount = 2 + Math.floor(rand() * 3);
+  const ji = [];
+  const jiPool = [...JI_POOL].filter(x => !yi.includes(x)).sort(() => rand() - 0.5);
+  for (let i = 0; i < jiCount; i++) ji.push(jiPool[i]);
+
+  const color   = COLORS[Math.floor(rand() * COLORS.length)];
+  const num     = [1,2,3,4,6,7,8,9][Math.floor(rand() * 8)];
+  const dir     = DIRS[Math.floor(rand() * DIRS.length)];
+  const star    = STARS[Math.floor(rand() * STARS.length)];
+  const jieqi   = ["清明","谷雨","立夏","小满","芒种","夏至"][Math.floor(rand() * 6)];
+  const jieqiDays = 1 + Math.floor(rand() * 12);
+
+  // 月相（根据农历日期近似）
+  const lunar = getLunarDate(date);
+  const dayNum = DAYS_CN.indexOf(lunar.lunarDay);
+  let moonPhase = "蛾眉月";
+  if (dayNum === 0) moonPhase = "新月";
+  else if (dayNum < 7) moonPhase = "蛾眉月";
+  else if (dayNum === 7) moonPhase = "上弦月";
+  else if (dayNum < 14) moonPhase = "盈凸月";
+  else if (dayNum === 14 || dayNum === 15) moonPhase = "满月";
+  else if (dayNum < 22) moonPhase = "亏凸月";
+  else if (dayNum === 22) moonPhase = "下弦月";
+  else moonPhase = "残月";
+
+  // 吉神凶煞
+  const shens = JISHENS.sort(() => rand()-0.5).slice(0, 2+Math.floor(rand()*2));
+  const shas  = XIONGSHAS.sort(() => rand()-0.5).slice(0, 1+Math.floor(rand()*2));
+
+  return { yi, ji, color, num, dir, star, jieqi, jieqiDays, moonPhase, shens, shas };
+}
+
+/* ============================================================
+   塔罗牌库
+   ============================================================ */
+const TAROT_CARDS = [
+  { name: "愚者", emoji: "🌀", hint: "新的开始即将展开，放下顾虑，勇敢踏出第一步" },
+  { name: "魔术师", emoji: "✨", hint: "你拥有实现目标的所有资源，相信自己的能力" },
+  { name: "女祭司", emoji: "🌙", hint: "倾听内心的声音，直觉正在引导你走向答案" },
+  { name: "皇后", emoji: "🌸", hint: "丰盛与创造力环绕，这是滋养自己与他人的时刻" },
+  { name: "皇帝", emoji: "👑", hint: "以稳定和秩序为基础，建立属于自己的领地" },
+  { name: "教皇", emoji: "🏛", hint: "寻求智慧与传统的指引，或是成为他人的引路人" },
+  { name: "恋人", emoji: "💞", hint: "重要的选择与关系面临考验，用心感受什么最重要" },
+  { name: "战车", emoji: "⚡", hint: "意志力与行动力充沛，驾驭矛盾，全力前进" },
+  { name: "力量", emoji: "🦁", hint: "温柔而坚定，内在力量比武力更有效" },
+  { name: "隐者", emoji: "🕯", hint: "独处与内省带来智慧，答案在内心深处等待" },
+  { name: "命运之轮", emoji: "🎡", hint: "命运正在转动，顺势而为，一切都在流动之中" },
+  { name: "正义", emoji: "⚖️", hint: "公平与真相会水落石出，诚实面对自己" },
+  { name: "倒吊人", emoji: "🔄", hint: "换个视角看问题，等待中蕴藏着转化的力量" },
+  { name: "死神", emoji: "🌑", hint: "一段旅程正在结束，为新的可能性腾出空间" },
+  { name: "节制", emoji: "🌊", hint: "平衡与耐心是今日主题，找到内外的和谐" },
+  { name: "恶魔", emoji: "🔗", hint: "审视那些束缚你的恐惧或执念，你比你想的更自由" },
+  { name: "塔", emoji: "⚡", hint: "震动与突破，旧的结构崩塌为新生命让路" },
+  { name: "星星", emoji: "⭐", hint: "希望与灵感从天而降，相信宇宙正在支持你" },
+  { name: "月亮", emoji: "🌕", hint: "幻象与迷雾中，信任直觉，一步一步向前走" },
+  { name: "太阳", emoji: "☀️", hint: "喜悦、活力与成功，今天充满正能量" },
+  { name: "审判", emoji: "🎺", hint: "觉醒与召唤，听从内心深处那个真实的自己" },
+  { name: "世界", emoji: "🌍", hint: "完成与圆满，你已走完一个重要循环" },
+];
+
+function getTodayTarot(date) {
+  const seed = hashDay(date);
+  const rand = seededRand(seed + 999);
+  return TAROT_CARDS[Math.floor(rand() * TAROT_CARDS.length)];
+}
+
+/* ============================================================
+   渲染页面
+   ============================================================ */
+function renderPage() {
+  const now   = new Date();
+  const lunar = getLunarDate(now);
+  const data  = getDayData(now);
+  const tarot = getTodayTarot(now);
+
+  const weekMap = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"];
+  const monthNames = ["一","二","三","四","五","六","七","八","九","十","十一","十二"];
+
+  // 日期
+  document.getElementById("date-cn").textContent = `🗓 ${now.getFullYear()}年${monthNames[now.getMonth()]}月`;
+  document.getElementById("date-big").textContent = now.getDate();
+  document.getElementById("date-week").textContent = weekMap[now.getDay()];
+
+  // 农历
+  document.getElementById("lunar-main").textContent = `${lunar.lunarMonth}${lunar.lunarDay}`;
+  document.getElementById("lunar-sub").textContent  = `${lunar.yearGZ}年（${lunar.sx}年）`;
+  document.getElementById("lunar-ganzhi").textContent = `${lunar.yearGZ}年 ${lunar.monthGZ}月 ${lunar.dayGZ}日`;
+
+  // 宜忌标签
+  const yiEl = document.getElementById("yi-tags");
+  yiEl.innerHTML = data.yi.map(t => `<span class="tag tag-yi">${t}</span>`).join("");
+  const jiEl = document.getElementById("ji-tags");
+  jiEl.innerHTML = data.ji.map(t => `<span class="tag tag-ji">${t}</span>`).join("");
+
+  // 吉日数据
+  document.getElementById("lucky-color").textContent = data.color;
+  document.getElementById("lucky-num").textContent   = data.num;
+  document.getElementById("lucky-dir").textContent   = data.dir;
+  document.getElementById("moon-phase").textContent  = data.moonPhase;
+
+  // 节气条
+  document.getElementById("next-jieqi").textContent = data.jieqi;
+  document.getElementById("jieqi-days").textContent = data.jieqiDays;
+
+  // 塔罗
+  document.getElementById("tarot-name").textContent  = tarot.name;
+  document.getElementById("tarot-hint").textContent  = tarot.hint;
+  document.getElementById("tarot-thumb").textContent = tarot.emoji;
+
+  // 弹层数据
+  document.getElementById("modal-title").textContent    = `${now.getMonth()+1}月${now.getDate()}日 黄历详解`;
+  document.getElementById("modal-subtitle").textContent = `${lunar.yearGZ}年 ${lunar.monthGZ}月 ${lunar.dayGZ}日 · ${data.moonPhase}`;
+  document.getElementById("m-year").textContent  = lunar.yearGZ;
+  document.getElementById("m-month").textContent = lunar.monthGZ;
+  document.getElementById("m-day").textContent   = lunar.dayGZ;
+  document.getElementById("m-star").textContent  = data.star;
+
+  document.getElementById("modal-yi").innerHTML =
+    data.yi.map(t => `<div class="detail-tag yi">${t}</div>`).join("");
+  document.getElementById("modal-ji").innerHTML =
+    data.ji.map(t => `<div class="detail-tag ji">${t}</div>`).join("");
+
+  const shensEl = document.getElementById("modal-shens");
+  shensEl.innerHTML =
+    data.shens.map(s => `<span class="shen-tag">✦ ${s}</span>`).join("") +
+    data.shas.map(s  => `<span class="sha-tag">✗ ${s}</span>`).join("");
+}
+
+/* ============================================================
+   弹层控制
+   ============================================================ */
+document.getElementById("detail-btn").addEventListener("click", () => {
+  document.getElementById("modal").classList.add("show");
+});
+document.getElementById("modal-close").addEventListener("click", () => {
+  document.getElementById("modal").classList.remove("show");
+});
+document.getElementById("modal").addEventListener("click", e => {
+  if (e.target === document.getElementById("modal"))
+    document.getElementById("modal").classList.remove("show");
+});
+
+/* ============================================================
+   星空动态背景
+   ============================================================ */
+(function starfield() {
+  const canvas = document.getElementById("stars-canvas");
+  const ctx    = canvas.getContext("2d");
+  let W, H, stars = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function initStars() {
+    stars = [];
+    for (let i = 0; i < 160; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.4 + 0.2,
+        alpha: Math.random() * 0.6 + 0.1,
+        speed: Math.random() * 0.003 + 0.001,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  let t = 0;
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    t += 0.016;
+    for (const s of stars) {
+      const a = s.alpha * (0.5 + 0.5 * Math.sin(t * s.speed * 60 + s.phase));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(212,175,55,${a})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener("resize", () => { resize(); initStars(); });
+  resize();
+  initStars();
+  draw();
+})();
+
+/* ============================================================
+   底部导航切换
+   ============================================================ */
+document.querySelectorAll(".nav-item").forEach(item => {
+  item.addEventListener("click", function() {
+    document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+    this.classList.add("active");
+  });
+});
+
+// 启动
+renderPage();
+</script>
+</body>
+</html>
