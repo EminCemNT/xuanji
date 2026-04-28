@@ -274,6 +274,42 @@
       border-radius:50%; background:#fff; transition:left 0.3s;
     }
     .toggle-switch.on::after { left:22px; }
+
+    /* ===== 赞赏横幅 ===== */
+    .support-banner {
+      background: linear-gradient(135deg, rgba(80,180,100,0.15) 0%, rgba(212,175,55,0.08) 40%, rgba(26,27,60,0.8) 100%);
+      border: 1px solid rgba(80,180,100,0.3); border-radius: 18px; padding: 20px;
+      position: relative; overflow: hidden; cursor: pointer;
+      transition: all 0.3s; margin-bottom: 16px;
+    }
+    .support-banner:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(80,180,100,0.2); }
+    .support-badge-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .support-badge {
+      background:linear-gradient(90deg,#50b464,#6ddc8b);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      font-size:18px; font-weight:800; letter-spacing:2px;
+    }
+    .support-tag {
+      background:rgba(80,180,100,0.2); color:#6ddc8b;
+      font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px;
+    }
+    .support-desc { font-size:13px; color:var(--text-sub); line-height:1.6; margin-bottom:12px; }
+    .support-btn {
+      width:100%; background:linear-gradient(135deg,#50b464,#6ddc8b);
+      color:#fff; border:none; border-radius:24px; padding:12px 0;
+      font-size:15px; font-weight:700; cursor:pointer; transition:all 0.3s; margin-top:12px;
+    }
+    .support-btn:hover { transform:scale(1.02); box-shadow:0 4px 16px rgba(80,180,100,0.4); }
+
+    /* ===== 统计卡片网格 ===== */
+    .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px; }
+    .stat-card {
+      background:var(--glass-bg); border:1px solid var(--glass-border);
+      border-radius:14px; padding:16px; text-align:center;
+    }
+    .stat-icon-big { font-size:28px; margin-bottom:6px; }
+    .stat-num-big { font-size:24px; font-weight:700; color:var(--gold); }
+    .stat-label-small { font-size:11px; color:var(--text-sub); margin-top:4px; }
   </style>
 </head>
 <body>
@@ -297,41 +333,29 @@
     <span class="user-level" id="userLevel">Lv.1 探索者</span>
     <div class="user-stats">
       <div class="stat-item">
-        <div class="stat-num" id="statCoins">💎 0</div>
-        <div class="stat-label">灵石</div>
-      </div>
-      <div class="stat-item">
         <div class="stat-num" id="statReadings">0</div>
         <div class="stat-label">占卜次数</div>
       </div>
       <div class="stat-item">
         <div class="stat-num" id="statDays">1</div>
-        <div class="stat-label">签到天数</div>
+        <div class="stat-label">使用天数</div>
       </div>
     </div>
   </div>
 
-  <!-- VIP -->
-  <div class="vip-banner" onclick="showRecharge()">
-    <div class="vip-badge-row">
-      <span class="vip-badge">👑 玄机会员</span>
-      <span class="vip-tag">限时特惠</span>
+  <!-- 赞赏支持 -->
+  <div class="support-banner" onclick="showSupport()">
+    <div class="support-badge-row">
+      <span class="support-badge">☕ 请作者喝杯茶</span>
+      <span class="support-tag">自愿赞赏</span>
     </div>
-    <div class="vip-desc">解锁全部功能 · 无限占卜 · AI深度解读 · 专属客服</div>
-    <div class="vip-features">
-      <span class="vf-item">无限三牌阵</span>
-      <span class="vf-item">五牌阵半价</span>
-      <span class="vf-item">AI深度解读</span>
-      <span class="vf-item">MBTI深度报告</span>
-      <span class="vf-item">星座月运详情</span>
-      <span class="vf-item">专属头像框</span>
+    <div class="support-desc">玄机阁完全免费 · 如果喜欢，欢迎打赏支持持续开发 ❤️</div>
+    <div class="support-features">
+      <span class="vf-item">所有功能永久免费</span>
+      <span class="vf-item">无广告无追踪</span>
+      <span class="vf-item">持续更新优化</span>
     </div>
-    <div class="vip-price-row">
-      <span class="vp-big">¥19.9</span><span class="vp-unit">/月</span>
-      <span class="vp-old">原价 ¥39.9/月</span>
-    </div>
-    <button class="vip-btn" onclick="event.stopPropagation(); showRecharge()">立即开通</button>
-    <div class="vip-glow"></div>
+    <button class="support-btn" onclick="event.stopPropagation(); showSupport()">赞赏支持</button>
   </div>
 
   <!-- 每日任务 -->
@@ -340,28 +364,18 @@
     <div class="task-list" id="taskList"></div>
   </div>
 
-  <!-- 灵石商城 -->
-  <div class="section-title">💎 灵石兑换</div>
-  <div class="shop-grid">
-    <div class="shop-item" onclick="buyItem('tarot3')">
-      <div class="shop-icon">🃏</div>
-      <div class="shop-name">三牌阵·免费券</div>
-      <div class="shop-cost">100</div>
+  <!-- 使用统计 -->
+  <div class="section-title">📊 我的探索</div>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon-big">🔮</div>
+      <div class="stat-num-big" id="statReadings2">0</div>
+      <div class="stat-label-small">占卜次数</div>
     </div>
-    <div class="shop-item" onclick="buyItem('tarot5')">
-      <div class="shop-icon">🃏🃏🃏</div>
-      <div class="shop-name">五牌阵·免费券</div>
-      <div class="shop-cost">300</div>
-    </div>
-    <div class="shop-item" onclick="buyItem('mbti')">
-      <div class="shop-icon">🧬</div>
-      <div class="shop-name">MBTI深度报告</div>
-      <div class="shop-cost">150</div>
-    </div>
-    <div class="shop-item" onclick="buyItem('tarotDeep')">
-      <div class="shop-icon">🔮</div>
-      <div class="shop-name">塔罗深度解读</div>
-      <div class="shop-cost">200</div>
+    <div class="stat-card">
+      <div class="stat-icon-big">📅</div>
+      <div class="stat-num-big" id="statDays2">1</div>
+      <div class="stat-label-small">使用天数</div>
     </div>
   </div>
 
@@ -377,10 +391,9 @@
   <!-- 菜单 -->
   <div class="menu-list">
     <div class="menu-group">
-      <div class="menu-item" onclick="showToast('邀请功能开发中')">
-        <span class="menu-icon">💌</span>
-        <span class="menu-label">邀请好友</span>
-        <span style="font-size:12px;color:var(--green)">+50灵石/人</span>
+      <div class="menu-item" onclick="showSupport()">
+        <span class="menu-icon">☕</span>
+        <span class="menu-label">赞赏支持</span>
         <span class="menu-arrow">›</span>
       </div>
       <div class="menu-item" onclick="showToast('成就系统开发中')">
@@ -409,30 +422,26 @@
   </div>
 </div>
 
-<!-- 充值弹窗 -->
+<!-- 赞赏弹窗 -->
 <div class="modal-overlay" id="rechargeModal">
   <div class="modal-content">
-    <button class="modal-close" onclick="closeRecharge()">✕</button>
-    <div class="modal-title">💎 充值灵石</div>
-    <div class="recharge-options" id="rechargeOpts">
-      <div class="recharge-opt selected" onclick="selectRecharge(this)">
-        <div class="ro-left"><span class="ro-coins">💎</span><div class="ro-info"><div class="ro-num">60 灵石</div><div class="ro-bonus">首充送10</div></div></div>
-        <div class="ro-price">¥1</div>
-      </div>
-      <div class="recharge-opt" onclick="selectRecharge(this)">
-        <div class="ro-left"><span class="ro-coins">💎💎</span><div class="ro-info"><div class="ro-num">320 灵石</div><div class="ro-bonus">送80</div></div></div>
-        <div class="ro-price">¥5</div>
-      </div>
-      <div class="recharge-opt" onclick="selectRecharge(this)">
-        <div class="ro-left"><span class="ro-coins">💎💎💎</span><div class="ro-info"><div class="ro-num">680 灵石</div><div class="ro-bonus">送220</div></div></div>
-        <div class="ro-price">¥10</div>
-      </div>
-      <div class="recharge-opt" onclick="selectRecharge(this)">
-        <div class="ro-left"><span class="ro-coins">👑</span><div class="ro-info"><div class="ro-num">2180 灵石</div><div class="ro-bonus">送680 + 月卡</div></div></div>
-        <div class="ro-price">¥29.9</div>
+    <button class="modal-close" onclick="closeSupport()">✕</button>
+    <div class="modal-title">☕ 请作者喝杯茶</div>
+    <div style="text-align:center;margin-bottom:16px;">
+      <p style="font-size:14px;color:var(--text-sub);line-height:1.8;">
+        玄机阁所有功能永久免费，无广告无追踪。<br>
+        如果你喜欢，欢迎赞赏支持持续开发 ❤️
+      </p>
+      <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:24px;margin:16px 0;">
+        <div style="width:180px;height:180px;background:#fff;border-radius:12px;margin:0 auto;display:flex;align-items:center;justify-content:center;color:#333;font-size:13px;">
+          📱 微信赞赏码<br><span style="font-size:11px;color:#999;">（扫码赞赏）</span>
+        </div>
+        <p style="font-size:12px;color:var(--text-sub);margin-top:12px;">
+          长按保存图片，打开微信扫一扫
+        </p>
       </div>
     </div>
-    <button class="vip-btn" onclick="doRecharge()">确认充值</button>
+    <button class="vip-btn" onclick="closeSupport()">谢谢支持 ❤️</button>
   </div>
 </div>
 
@@ -474,7 +483,7 @@ const DB = {
   // 初始化默认值
   init(){
     if(!this.get('user')){
-      this.set('user',{ name:'玄机旅人', level:1, avatar:'🌙', coins:0 });
+      this.set('user',{ name:'玄机旅人', level:1, avatar:'🌙' });
     }
     if(!this.get('tasks')) this.setDefaultTasks();
     if(!this.get('history')) this.set('history',[]);
@@ -483,11 +492,11 @@ const DB = {
   },
   setDefaultTasks(){
     this.set('tasks',[
-      { id:'checkin',   icon:'📅', name:'每日签到',     reward:10, done:false },
-      { id:'tarot1',    icon:'🃏', name:'完成一次单牌', reward:5,  done:false },
-      { id:'horoscope', icon:'⭐', name:'查看今日运势', reward:5,  done:false },
-      { id:'mbti',      icon:'🧬', name:'完成MBTI测试',reward:20, done:false },
-      { id:'share',     icon:'📤', name:'分享一次结果',  reward:15, done:false },
+      { id:'checkin',   icon:'📅', name:'每日签到',    done:false },
+      { id:'tarot1',    icon:'🃏', name:'完成一次占卜', done:false },
+      { id:'horoscope', icon:'⭐', name:'查看今日运势', done:false },
+      { id:'mbti',      icon:'🧬', name:'完成MBTI测试', done:false },
+      { id:'share',     icon:'📤', name:'分享一次结果', done:false },
     ]);
   },
 };
@@ -504,10 +513,9 @@ function renderTasks() {
       <span class="task-icon">${t.icon}</span>
       <div class="task-info">
         <div class="task-name">${t.name}</div>
-        <div class="task-reward">+${t.reward} 💎</div>
       </div>
       <button class="task-btn ${t.done?'done':''}" onclick="claimTask('${t.id}',this)">
-        ${t.done?'已领取':'领取'}
+        ${t.done?'已完成':'完成'}
       </button>
     `;
     list.appendChild(div);
@@ -518,33 +526,33 @@ function claimTask(id, btn){
   const tasks = DB.get('tasks');
   const task = tasks.find(t=>t.id===id);
   if(!task || task.done) return;
-  
-  // 标记完成并奖励
+
+  // 标记完成
   task.done = true;
-  const user = DB.get('user');
-  user.coins += task.reward;
-  DB.set('user', user);
   DB.set('tasks', tasks);
 
   btn.textContent='已领取';
   btn.classList.add('done');
   btn.parentElement.classList.add('done');
-  
-  showToast(`获得 ${task.reward} 灵石 ✨`);
+
+  showToast(`完成：${task.name} ✨`);
   updateStats();
 }
 
 // ===== 统计更新 =====
 function updateStats() {
-  const user = DB.get('user');
-  document.getElementById('statCoins').textContent = '💎 ' + (user.coins || 0).toLocaleString();
   const history = DB.get('history') || [];
   document.getElementById('statReadings').textContent = history.length;
   const ci = DB.get('checkin');
   document.getElementById('statDays').textContent = ci ? ci.days : 0;
 
-  // 升级检测
-  const newLevel = calcLevel(user.coins, history.length);
+  // 同步到探索统计
+  document.getElementById('statReadings2').textContent = history.length;
+  document.getElementById('statDays2').textContent = ci ? ci.days : 0;
+
+  // 升级检测（基于使用次数）
+  const user = DB.get('user') || {};
+  const newLevel = calcLevel2(history.length);
   if(newLevel !== user.level) {
     user.level = newLevel;
     DB.set('user', user);
@@ -553,12 +561,12 @@ function updateStats() {
   }
 }
 
-function calcLevel(coins, readings) {
+function calcLevel2(readings) {
   let lv=1;
-  if(readings>=5 && coins>=100) lv=2;
-  if(readings>=15 && coins>=500) lv=3;
-  if(readings>=30 && coins>=1200) lv=4;
-  if(readings>=60 && coins>=3000) lv=5;
+  if(readings>=3) lv=2;
+  if(readings>=10) lv=3;
+  if(readings>=25) lv=4;
+  if(readings>=50) lv=5;
   return lv;
 }
 function levelName(lv) {
@@ -618,39 +626,9 @@ function buyItem(itemId){
   updateStats();
 }
 
-// ===== 充值弹窗 =====
-function showRecharge() { document.getElementById('rechargeModal').classList.add('show'); }
-function closeRecharge(){ document.getElementById('rechargeModal').classList.remove('show'); }
-let selectedRechargeIdx = 0;
-
-function selectRecharge(el) {
-  document.querySelectorAll('.recharge-opt').forEach(o=>o.classList.remove('selected'));
-  el.classList.add('selected');
-  selectedRechargeIdx = [...el.parentElement.children].indexOf(el);
-}
-
-const RECHARGE_DATA = [
-  {coins:70, price:'¥1'},    // 60+10
-  {coins:400, price:'¥5'},   // 320+80
-  {coins:900, price:'¥10'},  // 680+220
-  {coins:2860, price:'¥29.9'} // 2180+680 + month
-];
-
-function doRecharge() {
-  const data = RECHARGE_DATA[selectedRechargeIdx];
-  const user = DB.get('user');
-  user.coins += data.coins;
-  DB.set('user', user);
-  closeRecharge();
-  showToast(`充值成功！获得 ${data.coins} 灵石 🎉`);
-  updateStats();
-
-  // 记录充值
-  const history = DB.get('history')||[];
-  history.push({type:'💎 灵石充值',icon:'💎',detail:`${data.coins} 灵石 (${data.price})`,time:formatTime()});
-  DB.set('history',history);
-  renderHistory();
-}
+// ===== 赞赏弹窗 =====
+function showSupport() { document.getElementById('rechargeModal').classList.add('show'); }
+function closeSupport(){ document.getElementById('rechargeModal').classList.remove('show'); }
 
 // ===== 设置 =====
 function showSettings() {
@@ -691,29 +669,8 @@ window.XJ = {
     h.push({type,icon,detail,time:formatTime()});
     DB.set('history',h);
   },
-  markTask(taskId){
-    // 外部模块标记任务进度（不自动领奖）
-    const tasks=DB.get('tasks')||[];
-    const t=tasks.find(x=>x.id===taskId);
-    if(t&&!t.done){ /* 可做标记 */ }
-  },
-  completeTask(taskId){
-    // 自动完成任务但不发奖（等用户手动领取）
-    const tasks=DB.get('tasks')||[];
-    const t=tasks.find(x=>x.id===taskId);
-    if(t)t.done=false; // 保持未领取状态但标记为可领取
-    DB.set('tasks',tasks);
-  },
-  getCoins(){return(DB.get('user')||{}).coins||0;},
-  useCoins(amount){
-    const u=DB.get('user')||{};
-    if(u.coins<amount)return false;
-    u.coins-=amount;
-    DB.set('user',u);
-    return true;
-  },
-  isVip(){return false;}, // TODO: 接入支付后实现
-  hasPurchased(itemId){return(DB.get('purchased')||{})[itemId]>0;}
+  markTask(taskId){},
+  completeTask(taskId){}
 };
 
 DB.init();

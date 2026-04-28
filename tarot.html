@@ -384,7 +384,7 @@
   </div>
 
   <div class="free-hint">
-    每日 <strong>1次</strong> 免费单牌占卜 · 三牌阵 <strong>¥6.6</strong>
+    全部功能免费开放 · 单牌 / 三牌阵 / 五牌阵
   </div>
 
   <button class="btn-primary" id="btnToStep2" disabled onclick="goStep(2)">
@@ -402,19 +402,19 @@
       <div class="so-icon">🃏</div>
       <div class="so-title">单牌指引</div>
       <div class="so-desc">一针见血</div>
-      <div class="so-price">每日免费</div>
+      <div class="so-price">免费</div>
     </div>
     <div class="spread-option" data-spread="3" onclick="selectSpread(this)">
       <div class="so-icon">🃏🃏🃏</div>
       <div class="so-title">三牌阵</div>
       <div class="so-desc">过去·现在·未来</div>
-      <div class="so-price">¥6.6</div>
+      <div class="so-price">免费</div>
     </div>
     <div class="spread-option" data-spread="5" onclick="selectSpread(this)">
       <div class="so-icon">🃏🃏🃏🃏🃏</div>
       <div class="so-title">五牌阵</div>
       <div class="so-desc">深度全面解读</div>
-      <div class="so-price">¥19.9</div>
+      <div class="so-price">免费</div>
     </div>
   </div>
 
@@ -456,21 +456,11 @@
     <p id="aiText"></p>
   </div>
 
-  <!-- 付费解锁深度解读 -->
-  <div class="pay-wall" id="payWall">
-    <div class="pw-icon">🔮</div>
-    <div class="pw-title">解锁深度解读</div>
-    <div class="pw-desc">
-      包含：详细行动建议 · 关键时间节点 · 避坑指南<br>
-      由 AI 深度分析你的牌面与问题
-    </div>
-    <div class="pw-price">¥9.9 <span>原价 ¥29.9</span></div>
-    <button class="pay-btn" onclick="unlockDeep()">立即解锁</button>
-    <div class="pw-features">
-      <span class="pw-feat">行动建议</span>
-      <span class="pw-feat">时间节点</span>
-      <span class="pw-feat">避坑指南</span>
-    </div>
+  <!-- 深度解读（免费展示） -->
+  <div class="ai-reading" id="deepReading" style="display:none;">
+    <div class="ai-badge">✦ 深度解读 ✦</div>
+    <h3>行动建议 · 时间节点 · 避坑指南</h3>
+    <p id="deepText"></p>
   </div>
 
   <div class="btn-row">
@@ -497,7 +487,7 @@
     <span class="nav-icon">🔮</span>
     <span class="nav-label">塔罗</span>
   </a>
-  <a href="#" class="nav-item" onclick="alert('个人中心开发中')">
+  <a href="profile.html" class="nav-item">
     <span class="nav-icon">👤</span>
     <span class="nav-label">我的</span>
   </a>
@@ -791,24 +781,21 @@ function typeWriter(el, text, idx) {
     setTimeout(() => typeWriter(el, text, idx + 1), 20);
   } else {
     el.innerHTML = text.replace(/\n/g, '<br>');
+    // AI解读完成后自动展示深度解读
+    showDeepReading();
   }
 }
 
-// ===== 付费解锁 =====
-function unlockDeep() {
+// ===== 深度解读（免费展示）=====
+function showDeepReading() {
   const deep = DEEP_TEMPLATES[selectedType];
-  const wall = document.getElementById('payWall');
-
-  // 模拟解锁（实际接入支付）
-  wall.innerHTML = `
-    <div class="pw-icon">✨</div>
-    <div class="pw-title">深度解读已解锁</div>
-    <div style="text-align:left;font-size:14px;line-height:2;color:var(--text-main);margin-top:16px;">
-      ${deep.replace(/\n/g, '<br>')}
-    </div>
-  `;
-  wall.style.borderColor = 'var(--gold)';
+  const el = document.getElementById('deepReading');
+  const textEl = document.getElementById('deepText');
+  el.style.display = 'block';
+  textEl.innerHTML = deep.replace(/\n/g, '<br>');
 }
+
+// ===== 分享 =====
 
 // ===== 分享 =====
 function shareResult() {
