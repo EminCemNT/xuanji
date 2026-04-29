@@ -75,45 +75,6 @@
     .stat-num { font-size:20px; font-weight:700; color:var(--gold); }
     .stat-label { font-size:11px; color:var(--text-sub); margin-top:2px; }
 
-    /* ===== VIP 卡片 ===== */
-    .vip-banner {
-      background: linear-gradient(135deg, #2a1b4e 0%, #1a2a5e 40%, #1b2f4e 100%);
-      border: 1px solid var(--gold); border-radius: 18px; padding: 20px;
-      position: relative; overflow: hidden; cursor: pointer;
-      transition: all 0.3s; margin-bottom: 16px;
-    }
-    .vip-banner:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(212,175,55,0.25); }
-    .vip-badge-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-    .vip-badge {
-      background:linear-gradient(90deg,var(--gold),#c9a227);
-      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-      font-size:18px; font-weight:800; letter-spacing:2px;
-    }
-    .vip-tag {
-      background:linear-gradient(135deg,var(--gold),var(--gold-light)); color:var(--bg-deep);
-      font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px;
-    }
-    .vip-desc { font-size:13px; color:var(--text-sub); line-height:1.6; margin-bottom:12px; }
-    .vip-features { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
-    .vf-item {
-      display:flex; align-items:center; gap:4px; font-size:12px; color:var(--moon);
-    }
-    .vf-item::before { content:'✦'; color:var(--gold); font-size:10px; }
-    .vip-price-row { display:flex; align-items:baseline; gap:8px; }
-    .vp-big { font-size:28px; font-weight:700; color:var(--gold-light); }
-    .vp-unit { font-size:13px; color:var(--text-sub); }
-    .vp-old { font-size:13px; color:var(--text-sub); text-decoration:line-through; opacity:0.5; }
-    .vip-btn {
-      width:100%; background:linear-gradient(135deg,var(--gold),var(--gold-light));
-      color:var(--bg-deep); border:none; border-radius:24px; padding:12px 0;
-      font-size:15px; font-weight:700; cursor:pointer; transition:all 0.3s; margin-top:12px;
-    }
-    .vip-btn:hover { transform:scale(1.02); box-shadow:0 4px 16px rgba(212,175,55,0.4); }
-    .vip-glow {
-      position:absolute; bottom:-60px; right:-60px; width:150px; height:150px;
-      border-radius:50%; background:radial-gradient(circle,rgba(212,175,55,0.15),transparent);
-    }
-
     /* ===== 每日任务 ===== */
     .section-title {
       font-size:16px; font-weight:600; color:var(--moon); margin-bottom:12px;
@@ -130,28 +91,14 @@
     .task-icon { font-size:28px; margin-right:14px; min-width:36px; }
     .task-info { flex:1; }
     .task-name { font-size:14px; color:var(--text-main); }
-    .task-reward { font-size:12px; color:var(--gold); margin-top:2px; }
     .task-btn {
-      background:linear-gradient(135deg,var(--purple),var(--purple-light)); color:#fff;
+      background:linear-gradient(135deg,var(--purple),#9b7ec8); color:#fff;
       border:none; border-radius:16px; padding:6px 16px; font-size:12px;
       cursor:pointer; white-space:nowrap; transition:all 0.2s;
     }
     .task-btn.done {
       background:var(--green); color:var(--bg-deep); cursor:default;
     }
-
-    /* ===== 积分商城 ===== */
-    .shop-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px; }
-    .shop-item {
-      background:var(--glass-bg); border:1px solid var(--glass-border);
-      border-radius:14px; padding:16px 12px; text-align:center; cursor:pointer;
-      transition:all 0.2s;
-    }
-    .shop-item:hover { border-color:var(--gold); transform:translateY(-2px); }
-    .shop-icon { font-size:32px; margin-bottom:6px; }
-    .shop-name { font-size:13px; color:var(--text-main); margin-bottom:4px; }
-    .shop-cost { font-size:13px; color:var(--gold); font-weight:600; }
-    .shop-cost::before { content:'💎 '; font-size:11px; }
 
     /* ===== 历史记录 ===== */
     .history-section { margin-bottom:20px; }
@@ -188,7 +135,7 @@
       padding:1px 7px; border-radius:8px; margin-right:8px;
     }
 
-    /* ===== 充值弹窗 ===== */
+    /* ===== 弹窗 ===== */
     .modal-overlay {
       display:none; position:fixed; top:0; left:0; right:0; bottom:0;
       background:rgba(0,0,0,0.7); backdrop-filter:blur(4px);
@@ -208,23 +155,12 @@
       font-size:22px; cursor:pointer; background:none; border:none;
     }
     .modal-title { font-size:18px; color:var(--gold); text-align:center; margin-bottom:16px; font-weight:700; }
-
-    /* 充值选项 */
-    .recharge-options { margin-bottom:16px; }
-    .recharge-opt {
-      display:flex; align-items:center; justify-content:space-between;
-      background:var(--glass-bg); border:1px solid var(--glass-border);
-      border-radius:12px; padding:14px 16px; margin-bottom:10px; cursor:pointer;
-      transition:all 0.2s;
+    .confirm-btn {
+      width:100%; background:linear-gradient(135deg,var(--gold),var(--gold-light));
+      color:var(--bg-deep); border:none; border-radius:24px; padding:12px 0;
+      font-size:15px; font-weight:700; cursor:pointer; transition:all 0.3s; margin-top:12px;
     }
-    .recharge-opt:hover, .recharge-opt.selected { border-color:var(--gold); background:rgba(212,175,55,0.06); }
-    .ro-left { display:flex; align-items:center; gap:10px; }
-    .ro-coins { font-size:24px; }
-    .ro-info {}
-    .ro-num { font-size:15px; font-weight:600; color:var(--text-main); }
-    .ro-bonus { font-size:11px; color:var(--green); }
-    .ro-price { font-size:17px; font-weight:700; color:var(--gold); }
-    .recharge-opt.selected .ro-price { font-size:19px; }
+    .confirm-btn:hover { transform:scale(1.02); box-shadow:0 4px 16px rgba(212,175,55,0.4); }
 
     /* Toast */
     .toast {
@@ -476,7 +412,7 @@
       每一份支持都是动力 · 感谢你 ✨
     </p>
 
-    <button class="vip-btn" style="margin-top:8px;background:linear-gradient(135deg,#50b464,#6ddc8b);" onclick="closeSupport()">谢谢支持 ❤️</button>
+    <button class="confirm-btn" style="background:linear-gradient(135deg,#50b464,#6ddc8b);" onclick="closeSupport()">谢谢支持 ❤️</button>
   </div>
 </div>
 
@@ -633,32 +569,6 @@ function renderHistory() {
     `;
     container.appendChild(div);
   });
-}
-
-// ===== 商城购买 =====
-function buyItem(itemId){
-  const items = {
-    tarot3:   {name:'三牌阵·免费券', cost:100},
-    tarot5:   {name:'五牌阵·免费券', cost:300},
-    mbti:     {name:'MBTI深度报告', cost:150},
-    tarotDeep:{name:'塔罗深度解读', cost:200}
-  };
-  const item = items[itemId];
-  if(!item) return;
-  const user = DB.get('user');
-  if(user.coins < item.cost){
-    showToast(`灵石不足，还需要 ${item.cost - user.coins} 💎\n点击上方VIP或充值按钮补充`);
-    showRecharge();
-    return;
-  }
-  user.coins -= item.cost;
-  DB.set('user', user);
-  // 记录已购
-  const purchased = DB.get('purchased') || {};
-  purchased[itemId] = (purchased[itemId]||0) + 1;
-  DB.set('purchased', purchased);
-  showToast(`购买成功：${item.name}\n可在对应模块中使用 ✨`);
-  updateStats();
 }
 
 // ===== 赞赏弹窗 =====
