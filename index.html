@@ -4,6 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>玄机阁 · 每天5分钟，读懂今天的自己</title>
+  <meta name="description" content="玄机阁 - 融合东方玄学与现代心理学的H5应用。黄历宜忌、星座运势、AI塔罗占卜、MBTI人格测试，完全免费。" />
+  <meta name="keywords" content="玄机阁,黄历,星座运势,塔罗占卜,MBTI,命理,玄学" />
+  <meta property="og:title" content="玄机阁 · 每天5分钟，读懂今天的自己" />
+  <meta property="og:description" content="黄历宜忌、星座运势、AI塔罗占卜、MBTI人格测试，完全免费，无广告无追踪。" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://emincemnt.github.io/xuanji/" />
   <style>
     /* ===== 全局变量 ===== */
     :root {
@@ -455,15 +461,15 @@
       <span>XuanJi · 每天5分钟，读懂今天的自己</span>
     </div>
     <div class="topbar-right">
-      <span class="topbar-icon">🔔</span>
-      <span class="topbar-icon">👤</span>
+      <span class="topbar-icon" onclick="location.href='profile.html'">🔔</span>
+      <span class="topbar-icon" onclick="location.href='profile.html'">👤</span>
     </div>
   </div>
 
   <!-- 节气提示 -->
   <div class="jieqi-bar fade-in delay-1" id="jieqi-bar">
     <div class="jieqi-dot"></div>
-    <span>距下一个节气 <strong id="next-jieqi">谷雨</strong> 还有 <strong id="jieqi-days">3</strong> 天 · 谷雨时节，雨生百谷</span>
+    <span>距下一个节气 <strong id="next-jieqi">--</strong> 还有 <strong id="jieqi-days">--</strong> 天 · 加载中...</span>
   </div>
 
   <!-- Hero 黄历卡 -->
@@ -523,7 +529,7 @@
   </div>
 
   <!-- 每日塔罗预告 -->
-  <div class="tarot-preview fade-in delay-2" id="tarot-card">
+  <div class="tarot-preview fade-in delay-2" id="tarot-card" onclick="location.href='tarot.html'" style="cursor:pointer">
     <div class="tarot-card-thumb" id="tarot-thumb">🃏</div>
     <div class="tarot-info">
       <div class="tarot-label">✦ 今日塔罗</div>
@@ -735,8 +741,6 @@ function getDayData(date) {
   const num     = [1,2,3,4,6,7,8,9][Math.floor(rand() * 8)];
   const dir     = DIRS[Math.floor(rand() * DIRS.length)];
   const star    = STARS[Math.floor(rand() * STARS.length)];
-  const jieqi   = ["清明","谷雨","立夏","小满","芒种","夏至"][Math.floor(rand() * 6)];
-  const jieqiDays = 1 + Math.floor(rand() * 12);
 
   // 月相（根据农历日期近似）
   const lunar = getLunarDate(date);
@@ -755,11 +759,50 @@ function getDayData(date) {
   const shens = JISHENS.sort(() => rand()-0.5).slice(0, 2+Math.floor(rand()*2));
   const shas  = XIONGSHAS.sort(() => rand()-0.5).slice(0, 1+Math.floor(rand()*2));
 
-  return { yi, ji, color, num, dir, star, jieqi, jieqiDays, moonPhase, shens, shas };
+  return { yi, ji, color, num, dir, star, moonPhase, shens, shas };
 }
 
 /* ============================================================
-   塔罗牌库
+   节气计算（基于2026年节气精确日期）
+   ============================================================ */
+const JIEQI_2026 = [
+  { name:"小寒",  date: new Date(2026, 0, 5),  desc:"小寒迎冬，冰雪砥砺" },
+  { name:"大寒",  date: new Date(2026, 0, 20), desc:"大寒将尽，岁序更新" },
+  { name:"立春",  date: new Date(2026, 1, 4),  desc:"立春一日，百草回芽" },
+  { name:"雨水",  date: new Date(2026, 1, 19), desc:"雨水时节，润物无声" },
+  { name:"惊蛰",  date: new Date(2026, 2, 6),  desc:"惊蛰春雷，万物复苏" },
+  { name:"春分",  date: new Date(2026, 2, 20), desc:"春分昼夜平，生机勃发" },
+  { name:"清明",  date: new Date(2026, 3, 5),  desc:"清明时节，万物明洁" },
+  { name:"谷雨",  date: new Date(2026, 3, 20), desc:"谷雨时节，雨生百谷" },
+  { name:"立夏",  date: new Date(2026, 4, 5),  desc:"立夏万物并秀，生机盎然" },
+  { name:"小满",  date: new Date(2026, 4, 21), desc:"小满江河满，麦穗饱满" },
+  { name:"芒种",  date: new Date(2026, 5, 6),  desc:"芒种忙收忙种，勤劳丰收" },
+  { name:"夏至",  date: new Date(2026, 5, 21), desc:"夏至白昼最长，阳气至极" },
+  { name:"小暑",  date: new Date(2026, 6, 7),  desc:"小暑天气炎热，养心静气" },
+  { name:"大暑",  date: new Date(2026, 6, 23), desc:"大暑万物繁茂，热气蒸腾" },
+  { name:"立秋",  date: new Date(2026, 7, 7),  desc:"立秋风起，金气肃降" },
+  { name:"处暑",  date: new Date(2026, 7, 23), desc:"处暑暑气将止，秋风渐凉" },
+  { name:"白露",  date: new Date(2026, 8, 8),  desc:"白露秋风起，凝露晶莹" },
+  { name:"秋分",  date: new Date(2026, 8, 23), desc:"秋分昼夜均，金风送爽" },
+  { name:"寒露",  date: new Date(2026, 9, 8),  desc:"寒露露水凉，秋意渐深" },
+  { name:"霜降",  date: new Date(2026, 9, 23), desc:"霜降草木黄，大地银装" },
+  { name:"立冬",  date: new Date(2026, 10, 7), desc:"立冬万物收藏，冬日初始" },
+  { name:"小雪",  date: new Date(2026, 10, 22),desc:"小雪初降，冰雪乍现" },
+  { name:"大雪",  date: new Date(2026, 11, 7), desc:"大雪漫天，万籁俱寂" },
+  { name:"冬至",  date: new Date(2026, 11, 22),desc:"冬至一阳生，万物始复苏" },
+];
+
+function getNextJieqi(today) {
+  const todayMs = today.setHours(0,0,0,0) && today;
+  // 找到今天之后最近的节气
+  for(const jq of JIEQI_2026) {
+    const diff = Math.ceil((jq.date - today) / 86400000);
+    if(diff >= 0) return { name: jq.name, days: diff, desc: jq.desc };
+  }
+  // 如果过了2026年，返回下一年小寒
+  return { name: "小寒", days: 1, desc: "小寒迎冬，冰雪砥砺" };
+}
+
    ============================================================ */
 const TAROT_CARDS = [
   { name: "愚者", emoji: "🌀", hint: "新的开始即将展开，放下顾虑，勇敢踏出第一步" },
@@ -826,9 +869,15 @@ function renderPage() {
   document.getElementById("lucky-dir").textContent   = data.dir;
   document.getElementById("moon-phase").textContent  = data.moonPhase;
 
-  // 节气条
-  document.getElementById("next-jieqi").textContent = data.jieqi;
-  document.getElementById("jieqi-days").textContent = data.jieqiDays;
+  // 节气条（实时计算）
+  const jieqiInfo = getNextJieqi(new Date());
+  document.getElementById("next-jieqi").textContent = jieqiInfo.name;
+  document.getElementById("jieqi-days").textContent = jieqiInfo.days === 0 ? "今天就是" : jieqiInfo.days;
+  // 同步更新节气描述文字
+  document.querySelector('#jieqi-bar span').innerHTML =
+    jieqiInfo.days === 0
+      ? `🎉 今天是 <strong>${jieqiInfo.name}</strong> · ${jieqiInfo.desc}`
+      : `距下一个节气 <strong>${jieqiInfo.name}</strong> 还有 <strong>${jieqiInfo.days}</strong> 天 · ${jieqiInfo.desc}`;
 
   // 塔罗
   document.getElementById("tarot-name").textContent  = tarot.name;
