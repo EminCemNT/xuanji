@@ -484,13 +484,22 @@
     .date-back-today.visible { display: inline-block; }
     .date-back-today:hover { background: rgba(212,175,55,0.22); }
 
-    /* 隐藏原生 date input，但保留功能 */
+    /* 日期选择器：移出布局流，由 JS showPicker() 触发 */
     #date-picker-input {
-      position: absolute;
+      position: fixed;
       opacity: 0;
-      width: 100%; height: 100%;
-      top: 0; left: 0;
-      cursor: pointer;
+      width: 0; height: 0;
+      pointer-events: none;
+    }
+    /* 确保左右按钮始终可点击，z-index 高于 date input */
+    #date-prev, #date-next {
+      position: relative;
+      z-index: 10;
+      pointer-events: auto;
+    }
+    .date-back-today {
+      position: relative;
+      z-index: 10;
     }
 
     /* ===== 动效 ===== */
@@ -538,10 +547,11 @@
   <div class="hero-card fade-in delay-1">
 
     <!-- 日期导航栏 -->
+    <!-- date input 放在 body 级别，绝对隐藏，不影响布局 -->
+    <input type="date" id="date-picker-input" style="position:fixed;opacity:0;width:0;height:0;top:-9999px;left:-9999px;pointer-events:none;" />
     <div class="date-nav">
       <button class="date-nav-btn" id="date-prev" title="前一天">‹</button>
       <div class="date-nav-center" id="date-nav-center">
-        <input type="date" id="date-picker-input" />
         <div class="date-nav-label" id="date-nav-label">--</div>
         <div class="date-nav-sub" id="date-nav-sub">点击选择日期</div>
       </div>
@@ -1069,17 +1079,29 @@ document.querySelectorAll(".nav-item").forEach(item => {
 });
 
 // 日期导航控制
-document.getElementById("date-prev").addEventListener("click", () => {
+document.getElementById("date-prev").addEventListener("click", (e) => {
+  e.stopPropagation();
   currentDate.setDate(currentDate.getDate() - 1);
   renderPage(new Date(currentDate));
 });
-document.getElementById("date-next").addEventListener("click", () => {
+document.getElementById("date-next").addEventListener("click", (e) => {
+  e.stopPropagation();
   currentDate.setDate(currentDate.getDate() + 1);
   renderPage(new Date(currentDate));
 });
-document.getElementById("date-back-today").addEventListener("click", () => {
+document.getElementById("date-back-today").addEventListener("click", (e) => {
+  e.stopPropagation();
   currentDate = new Date(); currentDate.setHours(0,0,0,0);
   renderPage(new Date(currentDate));
+});
+// 点击中间区域打开日期选择器
+document.getElementById("date-nav-center").addEventListener("click", () => {
+  const picker = document.getElementById("date-picker-input");
+  if (picker.showPicker) {
+    picker.showPicker();
+  } else {
+    picker.click();
+  }
 });
 document.getElementById("date-picker-input").addEventListener("change", function() {
   if (!this.value) return;
