@@ -431,6 +431,68 @@
     }
     .modal-close:hover { background: rgba(212,175,55,0.2); }
 
+    /* ===== 日期导航栏 ===== */
+    .date-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+    .date-nav-btn {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: 1px solid var(--glass-border);
+      background: rgba(212,175,55,0.08);
+      color: var(--gold);
+      font-size: 16px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .2s;
+      flex-shrink: 0;
+    }
+    .date-nav-btn:hover { background: rgba(212,175,55,0.2); border-color: rgba(212,175,55,0.45); }
+    .date-nav-center {
+      flex: 1;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+    }
+    .date-nav-label {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--moon);
+      letter-spacing: 1px;
+    }
+    .date-nav-sub {
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-top: 2px;
+    }
+    .date-back-today {
+      font-size: 11px;
+      color: var(--gold);
+      background: rgba(212,175,55,0.1);
+      border: 1px solid rgba(212,175,55,0.25);
+      border-radius: 20px;
+      padding: 3px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .2s;
+      display: none;
+    }
+    .date-back-today.visible { display: inline-block; }
+    .date-back-today:hover { background: rgba(212,175,55,0.22); }
+
+    /* 隐藏原生 date input，但保留功能 */
+    #date-picker-input {
+      position: absolute;
+      opacity: 0;
+      width: 100%; height: 100%;
+      top: 0; left: 0;
+      cursor: pointer;
+    }
+
     /* ===== 动效 ===== */
     .fade-in {
       animation: fadeIn .5s ease both;
@@ -474,6 +536,19 @@
 
   <!-- Hero 黄历卡 -->
   <div class="hero-card fade-in delay-1">
+
+    <!-- 日期导航栏 -->
+    <div class="date-nav">
+      <button class="date-nav-btn" id="date-prev" title="前一天">‹</button>
+      <div class="date-nav-center" id="date-nav-center">
+        <input type="date" id="date-picker-input" />
+        <div class="date-nav-label" id="date-nav-label">--</div>
+        <div class="date-nav-sub" id="date-nav-sub">点击选择日期</div>
+      </div>
+      <span class="date-back-today" id="date-back-today">回今天</span>
+      <button class="date-nav-btn" id="date-next" title="后一天">›</button>
+    </div>
+
     <div class="hero-top">
       <div>
         <div class="hero-date-cn" id="date-cn">🗓 今日黄历</div>
@@ -835,8 +910,17 @@ function getTodayTarot(date) {
 /* ============================================================
    渲染页面
    ============================================================ */
-function renderPage() {
-  const now   = new Date();
+let currentDate = new Date();
+currentDate.setHours(0,0,0,0);
+
+function toDateKey(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+
+function renderPage(date) {
+  const now   = date || new Date();
   const lunar = getLunarDate(now);
   const data  = getDayData(now);
   const tarot = getTodayTarot(now);
@@ -844,8 +928,21 @@ function renderPage() {
   const weekMap = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"];
   const monthNames = ["一","二","三","四","五","六","七","八","九","十","十一","十二"];
 
+  // 判断是否是今天
+  const today = new Date(); today.setHours(0,0,0,0);
+  const isToday = now.toDateString() === today.toDateString();
+
+  // 日期导航栏
+  document.getElementById("date-nav-label").textContent =
+    `${now.getFullYear()}年${monthNames[now.getMonth()]}月${now.getDate()}日`;
+  document.getElementById("date-nav-sub").textContent = isToday ? "今天 · 点击切换日期" : "点击切换日期";
+  document.getElementById("date-picker-input").value = toDateKey(now);
+  const backBtn = document.getElementById("date-back-today");
+  isToday ? backBtn.classList.remove("visible") : backBtn.classList.add("visible");
+
   // 日期
-  document.getElementById("date-cn").textContent = `🗓 ${now.getFullYear()}年${monthNames[now.getMonth()]}月`;
+  const prefix = isToday ? "🗓 今日黄历" : `🗓 ${monthNames[now.getMonth()]}月${now.getDate()}日 黄历`;
+  document.getElementById("date-cn").textContent = prefix;
   document.getElementById("date-big").textContent = now.getDate();
   document.getElementById("date-week").textContent = weekMap[now.getDay()];
 
@@ -971,8 +1068,28 @@ document.querySelectorAll(".nav-item").forEach(item => {
   });
 });
 
+// 日期导航控制
+document.getElementById("date-prev").addEventListener("click", () => {
+  currentDate.setDate(currentDate.getDate() - 1);
+  renderPage(new Date(currentDate));
+});
+document.getElementById("date-next").addEventListener("click", () => {
+  currentDate.setDate(currentDate.getDate() + 1);
+  renderPage(new Date(currentDate));
+});
+document.getElementById("date-back-today").addEventListener("click", () => {
+  currentDate = new Date(); currentDate.setHours(0,0,0,0);
+  renderPage(new Date(currentDate));
+});
+document.getElementById("date-picker-input").addEventListener("change", function() {
+  if (!this.value) return;
+  const parts = this.value.split('-');
+  currentDate = new Date(+parts[0], +parts[1]-1, +parts[2]);
+  renderPage(new Date(currentDate));
+});
+
 // 启动
-renderPage();
+renderPage(new Date(currentDate));
 </script>
 </body>
 </html>
