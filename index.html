@@ -935,6 +935,7 @@ function toDateKey(d) {
 }
 
 function renderPage(date) {
+  try {
   const now   = date || new Date();
   const lunar = getLunarDate(now);
   const data  = getDayData(now);
@@ -1018,6 +1019,9 @@ function renderPage(date) {
   shensEl.innerHTML =
     data.shens.map(s => `<span class="shen-tag">✦ ${s}</span>`).join("") +
     data.shas.map(s  => `<span class="sha-tag">✗ ${s}</span>`).join("");
+  } catch(err) {
+    console.error('[renderPage] ERROR:', err);
+  }
 }
 
 /* ============================================================
@@ -1097,6 +1101,7 @@ document.getElementById("date-prev").addEventListener("click", (e) => {
   const d = new Date(currentDate);
   d.setDate(d.getDate() - 1);
   currentDate = d;
+  console.log('[date-prev] clicked, new date:', toDateKey(currentDate));
   renderPage(new Date(currentDate));
 });
 document.getElementById("date-next").addEventListener("click", (e) => {
@@ -1104,11 +1109,13 @@ document.getElementById("date-next").addEventListener("click", (e) => {
   const d = new Date(currentDate);
   d.setDate(d.getDate() + 1);
   currentDate = d;
+  console.log('[date-next] clicked, new date:', toDateKey(currentDate));
   renderPage(new Date(currentDate));
 });
 document.getElementById("date-back-today").addEventListener("click", (e) => {
   e.stopPropagation();
   currentDate = new Date(); currentDate.setHours(0,0,0,0);
+  console.log('[date-back-today] clicked');
   renderPage(new Date(currentDate));
 });
 document.getElementById("date-picker-input").addEventListener("change", function() {
@@ -1116,6 +1123,7 @@ document.getElementById("date-picker-input").addEventListener("change", function
   const parts = this.value.split('-');
   currentDate = new Date(+parts[0], +parts[1]-1, +parts[2]);
   currentDate.setHours(0,0,0,0);
+  console.log('[date-picker] changed to:', toDateKey(currentDate));
   renderPage(new Date(currentDate));
 });
 
