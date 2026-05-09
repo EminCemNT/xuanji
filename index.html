@@ -935,7 +935,6 @@ function toDateKey(d) {
 }
 
 function renderPage(date) {
-  try {
   const now   = date || new Date();
   const lunar = getLunarDate(now);
   const data  = getDayData(now);
@@ -989,13 +988,13 @@ function renderPage(date) {
 
   // 节气条（实时计算）
   const jieqiInfo = getNextJieqi(new Date());
-  document.getElementById("next-jieqi").textContent = jieqiInfo.name;
-  document.getElementById("jieqi-days").textContent = jieqiInfo.days === 0 ? "今天就是" : jieqiInfo.days;
-  // 同步更新节气描述文字
-  document.querySelector('#jieqi-bar span').innerHTML =
-    jieqiInfo.days === 0
-      ? `🎉 今天是 <strong>${jieqiInfo.name}</strong> · ${jieqiInfo.desc}`
-      : `距下一个节气 <strong>${jieqiInfo.name}</strong> 还有 <strong>${jieqiInfo.days}</strong> 天 · ${jieqiInfo.desc}`;
+  // 同步更新节气描述文字（直接更新 span innerHTML，内嵌 strong id 一起重写）
+  const jieqiSpan = document.querySelector('#jieqi-bar span');
+  if (jieqiInfo.days === 0) {
+    jieqiSpan.innerHTML = `🎉 今天是 <strong id="next-jieqi">${jieqiInfo.name}</strong> · ${jieqiInfo.desc} <strong id="jieqi-days" style="display:none">0</strong>`;
+  } else {
+    jieqiSpan.innerHTML = `距下一个节气 <strong id="next-jieqi">${jieqiInfo.name}</strong> 还有 <strong id="jieqi-days">${jieqiInfo.days}</strong> 天 · ${jieqiInfo.desc}`;
+  }
 
   // 塔罗
   document.getElementById("tarot-name").textContent  = tarot.name;
@@ -1019,9 +1018,6 @@ function renderPage(date) {
   shensEl.innerHTML =
     data.shens.map(s => `<span class="shen-tag">✦ ${s}</span>`).join("") +
     data.shas.map(s  => `<span class="sha-tag">✗ ${s}</span>`).join("");
-  } catch(err) {
-    console.error('[renderPage] ERROR:', err);
-  }
 }
 
 /* ============================================================
@@ -1101,7 +1097,6 @@ document.getElementById("date-prev").addEventListener("click", (e) => {
   const d = new Date(currentDate);
   d.setDate(d.getDate() - 1);
   currentDate = d;
-  console.log('[date-prev] clicked, new date:', toDateKey(currentDate));
   renderPage(new Date(currentDate));
 });
 document.getElementById("date-next").addEventListener("click", (e) => {
@@ -1109,13 +1104,11 @@ document.getElementById("date-next").addEventListener("click", (e) => {
   const d = new Date(currentDate);
   d.setDate(d.getDate() + 1);
   currentDate = d;
-  console.log('[date-next] clicked, new date:', toDateKey(currentDate));
   renderPage(new Date(currentDate));
 });
 document.getElementById("date-back-today").addEventListener("click", (e) => {
   e.stopPropagation();
   currentDate = new Date(); currentDate.setHours(0,0,0,0);
-  console.log('[date-back-today] clicked');
   renderPage(new Date(currentDate));
 });
 document.getElementById("date-picker-input").addEventListener("change", function() {
@@ -1123,7 +1116,6 @@ document.getElementById("date-picker-input").addEventListener("change", function
   const parts = this.value.split('-');
   currentDate = new Date(+parts[0], +parts[1]-1, +parts[2]);
   currentDate.setHours(0,0,0,0);
-  console.log('[date-picker] changed to:', toDateKey(currentDate));
   renderPage(new Date(currentDate));
 });
 
