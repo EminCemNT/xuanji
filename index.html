@@ -499,14 +499,6 @@
     .date-back-today.visible { display: inline-block; }
     .date-back-today:hover { background: rgba(212,175,55,0.22); }
 
-    /* date input 完全隐藏，由 label 触发 */
-    #date-picker-input {
-      position: absolute;
-      width: 1px; height: 1px;
-      opacity: 0;
-      pointer-events: none;
-      top: 0; left: 50%;
-    }
     /* 左右按钮保持正常层级 */
     #date-prev, #date-next {
       position: relative;
@@ -964,7 +956,6 @@ function renderPage(date) {
   document.getElementById("nav-date-text").textContent =
     `${now.getFullYear()}年${monthNames[now.getMonth()]}月${now.getDate()}日 `;
   document.getElementById("date-nav-sub").textContent = isToday ? "今天 · 点击📅切换日期" : "点击📅切换日期";
-  document.getElementById("date-picker-input").value = toDateKey(now);
   const backBtn = document.getElementById("date-back-today");
   isToday ? backBtn.classList.remove("visible") : backBtn.classList.add("visible");
 
