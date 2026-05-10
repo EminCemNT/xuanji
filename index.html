@@ -476,6 +476,14 @@
       color: var(--text-sub);
       margin-top: 2px;
     }
+    .debug-version {
+      position: fixed;
+      top: 2px; right: 2px;
+      font-size: 10px;
+      color: rgba(212,175,55,0.5);
+      z-index: 9999;
+      pointer-events: none;
+    }
     .date-back-today {
       font-size: 11px;
       color: var(--gold);
@@ -522,6 +530,8 @@
   </style>
 </head>
 <body>
+<!-- 版本号（调试用） -->
+<div class="debug-version" id="debug-version"></div>
 
 <!-- 星空动态背景 -->
 <canvas id="stars-canvas"></canvas>
@@ -551,17 +561,16 @@
 
     <!-- 日期导航栏 -->
     <div class="date-nav">
-      <button class="date-nav-btn" id="date-prev" title="前一天">‹</button>
+      <button class="date-nav-btn" id="date-prev" title="前一天" onclick="goPrevDay()">‹</button>
       <div class="date-nav-center" id="date-nav-center">
-        <input type="date" id="date-picker-input" />
         <span class="date-nav-label" id="date-nav-label">
           <span id="nav-date-text">--</span>
-          <label for="date-picker-input" class="cal-icon" title="选择日期">📅</label>
+          <span class="cal-icon" title="选择日期" onclick="openDatePicker()">📅</span>
         </span>
         <div class="date-nav-sub" id="date-nav-sub">点击📅选择日期</div>
       </div>
-      <span class="date-back-today" id="date-back-today">回今天</span>
-      <button class="date-nav-btn" id="date-next" title="后一天">›</button>
+      <span class="date-back-today" id="date-back-today" onclick="goToday()">回今天</span>
+      <button class="date-nav-btn" id="date-next" title="后一天" onclick="goNextDay()">›</button>
     </div>
 
     <div class="hero-top">
@@ -928,6 +937,9 @@ function getTodayTarot(date) {
 let currentDate = new Date();
 currentDate.setHours(0,0,0,0);
 
+// 显示版本号（修改时间戳）
+document.getElementById("debug-version").textContent = "v5.4-20260510";
+
 function toDateKey(d) {
   return d.getFullYear() + '-' +
     String(d.getMonth()+1).padStart(2,'0') + '-' +
@@ -935,6 +947,7 @@ function toDateKey(d) {
 }
 
 function renderPage(date) {
+  try {  // <<< 加 try-catch 捕获所有错误
   const now   = date || new Date();
   const lunar = getLunarDate(now);
   const data  = getDayData(now);
@@ -1010,6 +1023,12 @@ function renderPage(date) {
   shensEl.innerHTML =
     data.shens.map(s => `<span class="shen-tag">✦ ${s}</span>`).join("") +
     data.shas.map(s  => `<span class="sha-tag">✗ ${s}</span>`).join("");
+  } catch(e) {
+    // 在页面上显示错误，方便调试
+    const errMsg = "renderPage错误: " + e.message;
+    document.getElementById("lunar-main").textContent = errMsg;
+    console.error(errMsg, e);
+  }
 }
 
 /* ============================================================
@@ -1074,42 +1093,59 @@ document.getElementById("modal").addEventListener("click", e => {
 })();
 
 /* ============================================================
-   底部导航切换
+   日期导航 - 全局函数（onclick 直接调用）
    ============================================================ */
-document.querySelectorAll(".nav-item").forEach(item => {
-  item.addEventListener("click", function() {
-    document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
-    this.classList.add("active");
-  });
-});
-
-// 日期导航控制
-document.getElementById("date-prev").addEventListener("click", (e) => {
-  e.stopPropagation();
+function goPrevDay() {
   const d = new Date(currentDate);
   d.setDate(d.getDate() - 1);
-  currentDate = d;
-  renderPage(new Date(currentDate));
-});
-document.getElementById("date-next").addEventListener("click", (e) => {
-  e.stopPropagation();
+  currentDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  renderPage(currentDate);
+}
+function goNextDay() {
   const d = new Date(currentDate);
   d.setDate(d.getDate() + 1);
-  currentDate = d;
-  renderPage(new Date(currentDate));
-});
-document.getElementById("date-back-today").addEventListener("click", (e) => {
-  e.stopPropagation();
+  currentDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  renderPage(currentDate);
+}
+function goToday() {
   currentDate = new Date(); currentDate.setHours(0,0,0,0);
   renderPage(new Date(currentDate));
-});
-document.getElementById("date-picker-input").addEventListener("change", function() {
-  if (!this.value) return;
-  const parts = this.value.split('-');
-  currentDate = new Date(+parts[0], +parts[1]-1, +parts[2]);
-  currentDate.setHours(0,0,0,0);
-  renderPage(new Date(currentDate));
-});
+}
+function openDatePicker() {
+  // 纯 JS 弹出一个简单的日期选择弹层
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#1a1a2e;padding:20px;border-radius:12px;border:1px solid rgba(212,175,55,0.4);color:#e8d5b7;min-width:260px;text-align:center;';
+  // 年月日选择器
+  const now = currentDate;
+  const ySel = document.createElement('select'); ySel.style.cssText = 'margin:4px;padding:4px;background:#0d0e1f;color:#e8d5b7;border:1px solid #d4af37;border-radius:6px;';
+  for (let y = 2020; y <= 2030; y++) { const o = new Option(y+'年', y); if (y===now.getFullYear()) o.selected=true; ySel.add(o); }
+  const mSel = document.createElement('select'); mSel.style.cssText = 'margin:4px;padding:4px;background:#0d0e1f;color:#e8d5b7;border:1px solid #d4af37;border-radius:6px;';
+  for (let m = 0; m < 12; m++) { const o = new Option((m+1)+'月', m); if (m===now.getMonth()) o.selected=true; mSel.add(o); }
+  const dSel = document.createElement('select'); dSel.style.cssText = 'margin:4px;padding:4px;background:#0d0e1f;color:#e8d5b7;border:1px solid #d4af37;border-radius:6px;';
+  function fillDays() {
+    dSel.innerHTML = '';
+    const max = new Date(+ySel.value, +mSel.value+1, 0).getDate();
+    for (let d = 1; d <= max; d++) { const o = new Option(d+'日', d); if (d===now.getDate()) o.selected=true; dSel.add(o); }
+  }
+  fillDays();
+  ySel.onchange = fillDays; mSel.onchange = fillDays;
+  const ok = document.createElement('button'); ok.textContent = '确定';
+  ok.style.cssText = 'margin-top:12px;padding:6px 24px;background:rgba(212,175,55,0.25);color:#d4af37;border:1px solid #d4af37;border-radius:8px;cursor:pointer;font-size:14px;';
+  ok.onclick = function() {
+    currentDate = new Date(+ySel.value, +mSel.value, +dSel.value);
+    renderPage(new Date(currentDate));
+    document.body.removeChild(overlay);
+  };
+  const cancel = document.createElement('button'); cancel.textContent = '取消';
+  cancel.style.cssText = 'margin-top:12px;margin-left:10px;padding:6px 24px;background:transparent;color:#999;border:1px solid #555;border-radius:8px;cursor:pointer;font-size:14px;';
+  cancel.onclick = function() { document.body.removeChild(overlay); };
+  box.append(ySel, mSel, dSel, document.createElement('br'), ok, cancel);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) document.body.removeChild(overlay); });
+}
 
 // 启动
 renderPage(new Date(currentDate));
