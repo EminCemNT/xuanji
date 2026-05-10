@@ -554,10 +554,10 @@
       <button class="date-nav-btn" id="date-prev" title="前一天">‹</button>
       <div class="date-nav-center" id="date-nav-center">
         <input type="date" id="date-picker-input" />
-        <div class="date-nav-label" id="date-nav-label">
-          --
+        <span class="date-nav-label" id="date-nav-label">
+          <span id="nav-date-text">--</span>
           <label for="date-picker-input" class="cal-icon" title="选择日期">📅</label>
-        </div>
+        </span>
         <div class="date-nav-sub" id="date-nav-sub">点击📅选择日期</div>
       </div>
       <span class="date-back-today" id="date-back-today">回今天</span>
@@ -948,16 +948,8 @@ function renderPage(date) {
   const isToday = now.toDateString() === today.toDateString();
 
   // 日期导航栏
-  // 只更新文字节点，不覆盖内部的 label(📅) 子元素
-  const navLabel = document.getElementById("date-nav-label");
-  const labelText = `${now.getFullYear()}年${monthNames[now.getMonth()]}月${now.getDate()}日`;
-  // 找到或更新第一个文字节点
-  let textNode = Array.from(navLabel.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
-  if (textNode) {
-    textNode.textContent = labelText + ' ';
-  } else {
-    navLabel.insertBefore(document.createTextNode(labelText + ' '), navLabel.firstChild);
-  }
+  document.getElementById("nav-date-text").textContent =
+    `${now.getFullYear()}年${monthNames[now.getMonth()]}月${now.getDate()}日 `;
   document.getElementById("date-nav-sub").textContent = isToday ? "今天 · 点击📅切换日期" : "点击📅切换日期";
   document.getElementById("date-picker-input").value = toDateKey(now);
   const backBtn = document.getElementById("date-back-today");
