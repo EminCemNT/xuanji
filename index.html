@@ -1096,13 +1096,13 @@ document.getElementById("modal").addEventListener("click", e => {
    日期导航 - 全局函数（onclick 直接调用）
    ============================================================ */
 function goPrevDay() {
-  const d = new Date(currentDate);
+  var d = new Date(currentDate);
   d.setDate(d.getDate() - 1);
   currentDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   renderPage(currentDate);
 }
 function goNextDay() {
-  const d = new Date(currentDate);
+  var d = new Date(currentDate);
   d.setDate(d.getDate() + 1);
   currentDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   renderPage(currentDate);
@@ -1112,39 +1112,84 @@ function goToday() {
   renderPage(new Date(currentDate));
 }
 function openDatePicker() {
-  // 纯 JS 弹出一个简单的日期选择弹层
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
-  const box = document.createElement('div');
-  box.style.cssText = 'background:#1a1a2e;padding:20px;border-radius:12px;border:1px solid rgba(212,175,55,0.4);color:#e8d5b7;min-width:260px;text-align:center;';
-  // 年月日选择器
-  const now = currentDate;
-  const ySel = document.createElement('select'); ySel.style.cssText = 'margin:4px;padding:4px;background:#0d0e1f;color:#e8d5b7;border:1px solid #d4af37;border-radius:6px;';
-  for (let y = 2020; y <= 2030; y++) { const o = new Option(y+'年', y); if (y===now.getFullYear()) o.selected=true; ySel.add(o); }
-  const mSel = document.createElement('select'); mSel.style.cssText = 'margin:4px;padding:4px;background:#0d0e1f;color:#e8d5b7;border:1px solid #d4af37;border-radius:6px;';
-  for (let m = 0; m < 12; m++) { const o = new Option((m+1)+'月', m); if (m===now.getMonth()) o.selected=true; mSel.add(o); }
-  const dSel = document.createElement('select'); dSel.style.cssText = 'margin:4px;padding:4px;background:#0d0e1f;color:#e8d5b7;border:1px solid #d4af37;border-radius:6px;';
-  function fillDays() {
-    dSel.innerHTML = '';
-    const max = new Date(+ySel.value, +mSel.value+1, 0).getDate();
-    for (let d = 1; d <= max; d++) { const o = new Option(d+'日', d); if (d===now.getDate()) o.selected=true; dSel.add(o); }
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:inherit;';
+  const cal = document.createElement('div');
+  cal.style.cssText = 'background:linear-gradient(135deg,#1a1a2e 0%,#0d0e1f 100%);padding:20px 18px;border-radius:16px;border:1px solid rgba(212,175,55,0.5);color:#e8d5b7;min-width:300px;box-shadow:0 0 40px rgba(212,175,55,0.15);';
+  let pickerDate = new Date(currentDate);
+  function buildCalendar() {
+    cal.innerHTML = '';
+    // 顶部年月标题 + 前后月按钮
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;';
+    const prevBtn = document.createElement('span');
+    prevBtn.textContent = '◀'; prevBtn.style.cssText = 'cursor:pointer;font-size:18px;color:#d4af37;padding:4px 10px;border-radius:8px;transition:background .2s;';
+    prevBtn.onmouseover = () => prevBtn.style.background = 'rgba(212,175,55,0.15)';
+    prevBtn.onmouseout  = () => prevBtn.style.background = 'transparent';
+    prevBtn.onclick = () => { pickerDate.setMonth(pickerDate.getMonth() - 1); buildCalendar(); };
+    const title = document.createElement('span');
+    title.style.cssText = 'font-size:16px;font-weight:600;color:#d4af37;letter-spacing:1px;';
+    title.textContent = pickerDate.getFullYear() + '年 ' + (pickerDate.getMonth()+1) + '月';
+    const nextBtn = document.createElement('span');
+    nextBtn.textContent = '▶'; nextBtn.style.cssText = 'cursor:pointer;font-size:18px;color:#d4af37;padding:4px 10px;border-radius:8px;transition:background .2s;';
+    nextBtn.onmouseover = () => nextBtn.style.background = 'rgba(212,175,55,0.15)';
+    nextBtn.onmouseout  = () => nextBtn.style.background = 'transparent';
+    nextBtn.onclick = () => { pickerDate.setMonth(pickerDate.getMonth() + 1); buildCalendar(); };
+    header.append(prevBtn, title, nextBtn);
+    cal.appendChild(header);
+    // 星期标题行
+    const weekdays = ['日','一','二','三','四','五','六'];
+    const wkRow = document.createElement('div');
+    wkRow.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:6px;';
+    weekdays.forEach(function(w) {
+      var el = document.createElement('div'); el.textContent = w;
+      el.style.cssText = 'text-align:center;font-size:12px;color:#888;padding:4px 0;';
+      wkRow.appendChild(el);
+    });
+    cal.appendChild(wkRow);
+    // 日期格子
+    var grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:3px;';
+    var year = pickerDate.getFullYear(), month = pickerDate.getMonth();
+    var firstDay = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month+1, 0).getDate();
+    var today = new Date(); today.setHours(0,0,0,0);
+    for (var i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
+    for (var d = 1; d <= daysInMonth; d++) {(function(d){
+      var cell = document.createElement('div'); cell.textContent = d;
+      var thisDate = new Date(year, month, d);
+      var isSelected = thisDate.toDateString() === currentDate.toDateString();
+      var isToday   = thisDate.toDateString() === today.toDateString();
+      var css = 'text-align:center;padding:7px 0;border-radius:8px;cursor:pointer;font-size:14px;transition:all .2s;';
+      if (isSelected) css += 'background:rgba(212,175,55,0.35);color:#d4af37;font-weight:700;box-shadow:0 0 8px rgba(212,175,55,0.3);';
+      else if (isToday) css += 'border:1px solid rgba(212,175,55,0.4);color:#e8d5b7;';
+      else css += 'color:#c0b8a8;';
+      cell.style.cssText = css;
+      cell.onmouseover = function(){ if (!isSelected) cell.style.background = 'rgba(212,175,55,0.12)'; };
+      cell.onmouseout  = function(){ if (!isSelected) cell.style.background = 'transparent'; };
+      cell.onclick = function(){ pickerDate = new Date(year, month, d); currentDate = new Date(year, month, d); buildCalendar(); };
+      grid.appendChild(cell);
+    })(d);}
+    cal.appendChild(grid);
+    // 底部按钮
+    var footer = document.createElement('div');
+    footer.style.cssText = 'display:flex;justify-content:center;gap:10px;margin-top:14px;';
+    var okBtn = document.createElement('button'); okBtn.textContent = '确定';
+    okBtn.style.cssText = 'padding:6px 28px;background:rgba(212,175,55,0.25);color:#d4af37;border:1px solid #d4af37;border-radius:8px;cursor:pointer;font-size:14px;';
+    okBtn.onclick = function(){ renderPage(new Date(currentDate)); document.body.removeChild(overlay); };
+    var tdyBtn = document.createElement('button'); tdyBtn.textContent = '今天';
+    tdyBtn.style.cssText = 'padding:6px 20px;background:transparent;color:#aaa;border:1px solid #555;border-radius:8px;cursor:pointer;font-size:14px;';
+    tdyBtn.onclick = function(){ currentDate = new Date(); currentDate.setHours(0,0,0,0); renderPage(new Date(currentDate)); document.body.removeChild(overlay); };
+    var canBtn = document.createElement('button'); canBtn.textContent = '取消';
+    canBtn.style.cssText = 'padding:6px 20px;background:transparent;color:#999;border:1px solid #555;border-radius:8px;cursor:pointer;font-size:14px;';
+    canBtn.onclick = function(){ document.body.removeChild(overlay); };
+    footer.append(okBtn, tdyBtn, canBtn);
+    cal.appendChild(footer);
   }
-  fillDays();
-  ySel.onchange = fillDays; mSel.onchange = fillDays;
-  const ok = document.createElement('button'); ok.textContent = '确定';
-  ok.style.cssText = 'margin-top:12px;padding:6px 24px;background:rgba(212,175,55,0.25);color:#d4af37;border:1px solid #d4af37;border-radius:8px;cursor:pointer;font-size:14px;';
-  ok.onclick = function() {
-    currentDate = new Date(+ySel.value, +mSel.value, +dSel.value);
-    renderPage(new Date(currentDate));
-    document.body.removeChild(overlay);
-  };
-  const cancel = document.createElement('button'); cancel.textContent = '取消';
-  cancel.style.cssText = 'margin-top:12px;margin-left:10px;padding:6px 24px;background:transparent;color:#999;border:1px solid #555;border-radius:8px;cursor:pointer;font-size:14px;';
-  cancel.onclick = function() { document.body.removeChild(overlay); };
-  box.append(ySel, mSel, dSel, document.createElement('br'), ok, cancel);
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
+  buildCalendar();
   overlay.addEventListener('click', function(e){ if(e.target===overlay) document.body.removeChild(overlay); });
+  overlay.appendChild(cal);
+  document.body.appendChild(overlay);
 }
 
 // 启动
