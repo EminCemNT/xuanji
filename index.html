@@ -545,7 +545,7 @@
   <!-- 节气提示 -->
   <div class="jieqi-bar fade-in delay-1" id="jieqi-bar">
     <div class="jieqi-dot"></div>
-    <span>距下一个节气 <strong id="next-jieqi">--</strong> 还有 <strong id="jieqi-days">--</strong> 天 · 加载中...</span>
+    <span>距下一个节气 <strong>--</strong> 还有 <strong>--</strong> 天 · 加载中...</span>
   </div>
 
   <!-- Hero 黄历卡 -->
@@ -879,10 +879,10 @@ const JIEQI_2026 = [
 ];
 
 function getNextJieqi(today) {
-  const todayMs = today.setHours(0,0,0,0) && today;
-  // 找到今天之后最近的节气
+  // 确保只比较日期部分，不修改传入日期对象
+  const base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   for(const jq of JIEQI_2026) {
-    const diff = Math.ceil((jq.date - today) / 86400000);
+    const diff = Math.round((jq.date - base) / 86400000);
     if(diff >= 0) return { name: jq.name, days: diff, desc: jq.desc };
   }
   // 如果过了2026年，返回下一年小寒
@@ -982,14 +982,15 @@ function renderPage(date) {
   document.getElementById("lucky-dir").textContent   = data.dir;
   document.getElementById("moon-phase").textContent  = data.moonPhase;
 
-  // 节气条（实时计算）
-  const jieqiInfo = getNextJieqi(new Date());
-  // 同步更新节气描述文字（直接更新 span innerHTML，内嵌 strong id 一起重写）
+  // 节气条（跟随当前显示日期计算）
+  const jieqiInfo = getNextJieqi(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
   const jieqiSpan = document.querySelector('#jieqi-bar span');
   if (jieqiInfo.days === 0) {
-    jieqiSpan.innerHTML = `🎉 今天是 <strong id="next-jieqi">${jieqiInfo.name}</strong> · ${jieqiInfo.desc} <strong id="jieqi-days" style="display:none">0</strong>`;
+    jieqiSpan.textContent = '';
+    jieqiSpan.innerHTML = `🎉 今天是 <strong>${jieqiInfo.name}</strong> · ${jieqiInfo.desc}`;
   } else {
-    jieqiSpan.innerHTML = `距下一个节气 <strong id="next-jieqi">${jieqiInfo.name}</strong> 还有 <strong id="jieqi-days">${jieqiInfo.days}</strong> 天 · ${jieqiInfo.desc}`;
+    jieqiSpan.textContent = '';
+    jieqiSpan.innerHTML = `距下一个节气 <strong>${jieqiInfo.name}</strong> 还有 <strong>${jieqiInfo.days}</strong> 天 · ${jieqiInfo.desc}`;
   }
 
   // 塔罗
