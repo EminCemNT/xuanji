@@ -339,7 +339,7 @@ export default {
       this.currentDate = new Date()
     },
 
-    goProfile() { uni.navigateTo({ url: '/pages/profile/profile' }) },
+    goProfile() { uni.switchTab({ url: '/pages/profile/profile' }) },
     goTarot() { uni.switchTab({ url: '/pages/tarot/tarot' }) },
     goPage(url) { uni.navigateTo({ url }) },
 
