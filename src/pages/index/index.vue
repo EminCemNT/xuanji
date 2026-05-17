@@ -28,7 +28,7 @@
     <view class="hero-card">
       <!-- 日期导航栏 -->
       <view class="date-nav">
-        <view class="date-nav-btn" hover-class="btn-pressed" @tap="goPrevDay">‹</view>
+        <text class="date-nav-btn" @tap.stop="goPrevDay">◀</text>
         <view class="date-nav-center" @tap="showDatePicker = true">
           <view class="date-nav-label">
             <text class="nav-date-text">{{ dateLabel }}</text>
@@ -36,8 +36,8 @@
           </view>
           <text class="date-nav-sub">{{ isToday ? '今天 · 点击切换日期' : '点击切换日期' }}</text>
         </view>
-        <text v-if="!isToday" class="date-back-today" hover-class="btn-pressed" @tap="goToday">回今天</text>
-        <view class="date-nav-btn" hover-class="btn-pressed" @tap="goNextDay">›</view>
+        <text v-if="!isToday" class="date-back-today" @tap.stop="goToday">回今天</text>
+        <text class="date-nav-btn" @tap.stop="goNextDay">▶</text>
       </view>
 
       <view class="hero-top">
@@ -459,21 +459,23 @@ export default {
   margin-bottom: 28rpx;
 }
 .date-nav-btn {
-  width: 72rpx; height: 72rpx;
+  display: inline-flex;
+  min-width: 80rpx;
+  height: 72rpx;
+  line-height: 72rpx;
   border-radius: 50%;
-  background: rgba(212,175,55,0.08);
+  background: rgba(212,175,55,0.15);
   color: #d4af37;
-  font-size: 40rpx;
-  border: 1px solid rgba(212,175,55,0.3);
-  display: flex;
+  font-size: 32rpx;
+  border: 2rpx solid rgba(212,175,55,0.4);
   align-items: center;
   justify-content: center;
-  line-height: 1;
-  padding: 0;
+  text-align: center;
+  padding: 0 16rpx;
+  box-sizing: border-box;
 }
-.btn-pressed {
-  background: rgba(212,175,55,0.25) !important;
-  transform: scale(0.92);
+.date-nav-btn:active {
+  background: rgba(212,175,55,0.35);
 }
 .date-nav-center { flex: 1; text-align: center; }
 .date-nav-label {
@@ -484,13 +486,16 @@ export default {
 .cal-icon { margin-left: 8rpx; font-size: 28rpx; opacity: 0.7; }
 .date-nav-sub { display: block; font-size: 22rpx; color: #a09ab8; margin-top: 4rpx; }
 .date-back-today {
+  display: inline-block;
   font-size: 22rpx;
   color: #d4af37;
-  padding: 6rpx 16rpx;
-  border: 1px solid rgba(212,175,55,0.3);
-  border-radius: 20rpx;
+  padding: 8rpx 20rpx;
+  border: 2rpx solid rgba(212,175,55,0.4);
+  border-radius: 24rpx;
   margin-right: 12rpx;
+  background: rgba(212,175,55,0.1);
 }
+.date-back-today:active { background: rgba(212,175,55,0.25); }
 
 /* 日期显示 */
 .hero-top {
