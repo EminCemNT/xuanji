@@ -28,16 +28,16 @@
     <view class="hero-card">
       <!-- 日期导航栏 -->
       <view class="date-nav">
-        <button class="date-nav-btn" @tap="goPrevDay">‹</button>
-        <view class="date-nav-center">
+        <view class="date-nav-btn" hover-class="btn-pressed" @tap="goPrevDay">‹</view>
+        <view class="date-nav-center" @tap="showDatePicker = true">
           <view class="date-nav-label">
             <text class="nav-date-text">{{ dateLabel }}</text>
-            <text class="cal-icon" @tap="showDatePicker = true">📅</text>
+            <text class="cal-icon" @tap.stop="showDatePicker = true">📅</text>
           </view>
-          <text class="date-nav-sub">{{ isToday ? '今天 · 点击📅切换日期' : '点击📅切换日期' }}</text>
+          <text class="date-nav-sub">{{ isToday ? '今天 · 点击切换日期' : '点击切换日期' }}</text>
         </view>
-        <text v-if="!isToday" class="date-back-today" @tap="goToday">回今天</text>
-        <button class="date-nav-btn" @tap="goNextDay">›</button>
+        <text v-if="!isToday" class="date-back-today" hover-class="btn-pressed" @tap="goToday">回今天</text>
+        <view class="date-nav-btn" hover-class="btn-pressed" @tap="goNextDay">›</view>
       </view>
 
       <view class="hero-top">
@@ -133,8 +133,8 @@
   </view><!-- end page-wrap -->
 
   <!-- 黄历详情弹层 -->
-  <view class="modal-overlay" v-if="showModal" @tap.self="showModal = false">
-    <view class="modal-sheet">
+  <view class="modal-overlay" v-if="showModal" @tap.self="showModal = false" catchtouchmove>
+    <view class="modal-sheet" catchtouchmove>
       <view class="modal-handle"></view>
       <text class="modal-title">{{ modalTitle }}</text>
       <text class="modal-subtitle">{{ modalSubtitle }}</text>
@@ -180,8 +180,8 @@
   </view>
 
   <!-- 日期选择器（简化版） -->
-  <view class="picker-overlay" v-if="showDatePicker" @tap.self="showDatePicker = false">
-    <view class="picker-sheet">
+  <view class="picker-overlay" v-if="showDatePicker" @tap.self="showDatePicker = false" catchtouchmove>
+    <view class="picker-sheet" catchtouchmove>
       <view class="picker-header">
         <text class="picker-cancel" @tap="showDatePicker = false">取消</text>
         <text class="picker-title">{{ pickerYear }}年{{ pickerMonth }}月</text>
@@ -340,7 +340,7 @@ export default {
     },
 
     goProfile() { uni.navigateTo({ url: '/pages/profile/profile' }) },
-    goTarot() { uni.navigateTo({ url: '/pages/tarot/tarot' }) },
+    goTarot() { uni.switchTab({ url: '/pages/tarot/tarot' }) },
     goPage(url) { uni.navigateTo({ url }) },
 
     // 日期选择器方法
@@ -459,17 +459,21 @@ export default {
   margin-bottom: 28rpx;
 }
 .date-nav-btn {
-  width: 56rpx; height: 56rpx;
+  width: 72rpx; height: 72rpx;
   border-radius: 50%;
-  background: transparent;
+  background: rgba(212,175,55,0.08);
   color: #d4af37;
-  font-size: 36rpx;
+  font-size: 40rpx;
   border: 1px solid rgba(212,175,55,0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
   padding: 0;
+}
+.btn-pressed {
+  background: rgba(212,175,55,0.25) !important;
+  transform: scale(0.92);
 }
 .date-nav-center { flex: 1; text-align: center; }
 .date-nav-label {
@@ -713,8 +717,8 @@ export default {
   padding: 16rpx 0;
 }
 .picker-cell {
-  width: 64rpx;
-  height: 64rpx;
+  width: 72rpx;
+  height: 72rpx;
   display: flex;
   align-items: center;
   justify-content: center;

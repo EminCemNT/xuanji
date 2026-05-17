@@ -21,6 +21,7 @@
           <view class="stat-item"><view class="stat-value">16</view><view class="stat-label">性格类型</view></view>
         </view>
         <view class="start-btn" @tap="startQuiz">开始测试 ✨</view>
+        <view class="mbti-disclaimer">本测试仅供娱乐参考，非官方 MBTI® 认证测试。MBTI® 是 The Myers-Briggs Company 的注册商标。</view>
       </view>
 
       <!-- 测试页 -->
@@ -79,6 +80,9 @@
 
         <!-- 操作按钮 -->
         <view class="action-btns">
+          <view class="action-btn" @tap="goBack">
+            <text class="icon">🏠</text> 返回首页
+          </view>
           <view class="action-btn" @tap="copyResult">
             <text class="icon">📋</text> 复制结果
           </view>
@@ -221,6 +225,9 @@ function copyResult() {
   const text = `我是${resultType.value}「${resultData.value.name}」！来玄机阁测测你的MBTI性格吧 ✨`
   uni.setClipboardData({ data: text, success: () => uni.showToast({ title: '已复制', icon: 'success' }) })
 }
+function goBack() {
+  uni.switchTab({ url: '/pages/index/index' })
+}
 </script>
 
 <style scoped>
@@ -259,6 +266,7 @@ function copyResult() {
   box-shadow: 0 8rpx 32rpx rgba(212,175,55,0.4);
 }
 .start-btn:active { opacity: 0.85; }
+.mbti-disclaimer { margin-top: 28rpx; font-size: 20rpx; color: rgba(245,240,232,0.3); text-align: center; line-height: 1.6; padding: 0 20rpx; }
 
 /* 测试页 */
 .quiz-page { padding-top: 20rpx; }
@@ -336,13 +344,13 @@ function copyResult() {
 }
 
 /* 操作按钮 */
-.action-btns { display: flex; gap: 20rpx; }
+.action-btns { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .action-btn {
-  flex: 1; text-align: center;
+  flex: 1; min-width: 160rpx; text-align: center;
   background: rgba(255,255,255,0.06);
   border: 1rpx solid rgba(255,255,255,0.12);
-  border-radius: 20rpx; padding: 28rpx 16rpx;
-  font-size: 26rpx; color: #F5F0E8;
+  border-radius: 20rpx; padding: 24rpx 16rpx;
+  font-size: 24rpx; color: #F5F0E8;
 }
 .action-btn:active { background: rgba(212,175,55,0.12); }
 .action-btn .icon { margin-right: 8rpx; }
