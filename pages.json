@@ -1,0 +1,93 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "玄机阁",
+        "navigationBarBackgroundColor": "#1a1a2e",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#0f0f1a"
+      }
+    },
+    {
+      "path": "pages/horoscope/horoscope",
+      "style": {
+        "navigationBarTitleText": "星座运势",
+        "navigationBarBackgroundColor": "#1a1a2e",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#0f0f1a"
+      }
+    },
+    {
+      "path": "pages/tarot/tarot",
+      "style": {
+        "navigationBarTitleText": "塔罗占卜",
+        "navigationBarBackgroundColor": "#1a1a2e",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#0f0f1a"
+      }
+    },
+    {
+      "path": "pages/profile/profile",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "navigationBarBackgroundColor": "#1a1a2e",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#0f0f1a"
+      }
+    },
+    {
+      "path": "pages/mbti/mbti",
+      "style": {
+        "navigationBarTitleText": "MBTI人格测试",
+        "navigationBarBackgroundColor": "#1a1a2e",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#0f0f1a"
+      }
+    }
+  ],
+  "tabBar": {
+    "color": "#8888aa",
+    "selectedColor": "#c9a96e",
+    "backgroundColor": "#1a1a2e",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "static/icons/home.png",
+        "selectedIconPath": "static/icons/home-active.png"
+      },
+      {
+        "pagePath": "pages/horoscope/horoscope",
+        "text": "星座",
+        "iconPath": "static/icons/horoscope.png",
+        "selectedIconPath": "static/icons/horoscope-active.png"
+      },
+      {
+        "pagePath": "pages/tarot/tarot",
+        "text": "塔罗",
+        "iconPath": "static/icons/tarot.png",
+        "selectedIconPath": "static/icons/tarot-active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "static/icons/profile.png",
+        "selectedIconPath": "static/icons/profile-active.png"
+      }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarBackgroundColor": "#1a1a2e",
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "玄机阁",
+    "backgroundColor": "#0f0f1a",
+    "backgroundColorTop": "#1a1a2e",
+    "backgroundColorBottom": "#0f0f1a"
+  },
+  "condition": {
+    "current": 0,
+    "list": []
+  }
+}

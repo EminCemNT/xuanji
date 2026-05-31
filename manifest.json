@@ -1,0 +1,28 @@
+{
+  "name": "玄机阁",
+  "appid": "__UNI__XXXXXXX",
+  "description": "玄机阁 - 星座·塔罗·黄历·MBTI",
+  "versionName": "1.0.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "postcss": true,
+      "minified": true,
+      "newFeature": true
+    },
+    "usingComponents": true,
+    "permission": {},
+    "requiredPrivateInfos": [],
+    "lazyCodeLoading": "requiredComponents"
+  },
+  "h5": {
+    "title": "玄机阁",
+    "router": {
+      "mode": "hash"
+    }
+  }
+}

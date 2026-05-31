@@ -2,3 +2,15 @@ node_modules/
 .DS_Store
 *.log
 .env
+
+# uni-app
+unpackage/
+dist/
+
+# IDE
+.project
+*.swp
+*.swo
+
+# OS
+Thumbs.db
