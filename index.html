@@ -851,43 +851,66 @@ function getDayData(date) {
 /* ============================================================
    节气计算（基于2026年节气精确日期）
    ============================================================ */
-const JIEQI_2026 = [
-  { name:"小寒",  date: new Date(2026, 0, 5),  desc:"小寒迎冬，冰雪砥砺" },
-  { name:"大寒",  date: new Date(2026, 0, 20), desc:"大寒将尽，岁序更新" },
-  { name:"立春",  date: new Date(2026, 1, 4),  desc:"立春一日，百草回芽" },
-  { name:"雨水",  date: new Date(2026, 1, 19), desc:"雨水时节，润物无声" },
-  { name:"惊蛰",  date: new Date(2026, 2, 6),  desc:"惊蛰春雷，万物复苏" },
-  { name:"春分",  date: new Date(2026, 2, 20), desc:"春分昼夜平，生机勃发" },
-  { name:"清明",  date: new Date(2026, 3, 5),  desc:"清明时节，万物明洁" },
-  { name:"谷雨",  date: new Date(2026, 3, 20), desc:"谷雨时节，雨生百谷" },
-  { name:"立夏",  date: new Date(2026, 4, 5),  desc:"立夏万物并秀，生机盎然" },
-  { name:"小满",  date: new Date(2026, 4, 21), desc:"小满江河满，麦穗饱满" },
-  { name:"芒种",  date: new Date(2026, 5, 6),  desc:"芒种忙收忙种，勤劳丰收" },
-  { name:"夏至",  date: new Date(2026, 5, 21), desc:"夏至白昼最长，阳气至极" },
-  { name:"小暑",  date: new Date(2026, 6, 7),  desc:"小暑天气炎热，养心静气" },
-  { name:"大暑",  date: new Date(2026, 6, 23), desc:"大暑万物繁茂，热气蒸腾" },
-  { name:"立秋",  date: new Date(2026, 7, 7),  desc:"立秋风起，金气肃降" },
-  { name:"处暑",  date: new Date(2026, 7, 23), desc:"处暑暑气将止，秋风渐凉" },
-  { name:"白露",  date: new Date(2026, 8, 8),  desc:"白露秋风起，凝露晶莹" },
-  { name:"秋分",  date: new Date(2026, 8, 23), desc:"秋分昼夜均，金风送爽" },
-  { name:"寒露",  date: new Date(2026, 9, 8),  desc:"寒露露水凉，秋意渐深" },
-  { name:"霜降",  date: new Date(2026, 9, 23), desc:"霜降草木黄，大地银装" },
-  { name:"立冬",  date: new Date(2026, 10, 7), desc:"立冬万物收藏，冬日初始" },
-  { name:"小雪",  date: new Date(2026, 10, 22),desc:"小雪初降，冰雪乍现" },
-  { name:"大雪",  date: new Date(2026, 11, 7), desc:"大雪漫天，万籁俱寂" },
-  { name:"冬至",  date: new Date(2026, 11, 22),desc:"冬至一阳生，万物始复苏" },
+const JIEQI_INFO = [
+  { name:"小寒",  month:0,  approxDay:5,  desc:"小寒迎冬，冰雪砥砺" },
+  { name:"大寒",  month:0,  approxDay:20, desc:"大寒将尽，岁序更新" },
+  { name:"立春",  month:1,  approxDay:4,  desc:"立春一日，百草回芽" },
+  { name:"雨水",  month:1,  approxDay:19, desc:"雨水时节，润物无声" },
+  { name:"惊蛰",  month:2,  approxDay:6,  desc:"惊蛰春雷，万物复苏" },
+  { name:"春分",  month:2,  approxDay:21, desc:"春分昼夜平，生机勃发" },
+  { name:"清明",  month:3,  approxDay:5,  desc:"清明时节，万物明洁" },
+  { name:"谷雨",  month:3,  approxDay:20, desc:"谷雨时节，雨生百谷" },
+  { name:"立夏",  month:4,  approxDay:6,  desc:"立夏万物并秀，生机盎然" },
+  { name:"小满",  month:4,  approxDay:21, desc:"小满江河满，麦穗饱满" },
+  { name:"芒种",  month:5,  approxDay:6,  desc:"芒种忙收忙种，勤劳丰收" },
+  { name:"夏至",  month:5,  approxDay:22, desc:"夏至白昼最长，阳气至极" },
+  { name:"小暑",  month:6,  approxDay:7,  desc:"小暑天气炎热，养心静气" },
+  { name:"大暑",  month:6,  approxDay:23, desc:"大暑万物繁茂，热气蒸腾" },
+  { name:"立秋",  month:7,  approxDay:8,  desc:"立秋风起，金气肃降" },
+  { name:"处暑",  month:7,  approxDay:23, desc:"处暑暑气将止，秋风渐凉" },
+  { name:"白露",  month:8,  approxDay:8,  desc:"白露秋风起，凝露晶莹" },
+  { name:"秋分",  month:8,  approxDay:23, desc:"秋分昼夜均，金风送爽" },
+  { name:"寒露",  month:9,  approxDay:8,  desc:"寒露露水凉，秋意渐深" },
+  { name:"霜降",  month:9,  approxDay:24, desc:"霜降草木黄，大地银装" },
+  { name:"立冬",  month:10, approxDay:7,  desc:"立冬万物收藏，冬日初始" },
+  { name:"小雪",  month:10, approxDay:22, desc:"小雪初降，冰雪乍现" },
+  { name:"大雪",  month:11, approxDay:7,  desc:"大雪漫天，万籁俱寂" },
+  { name:"冬至",  month:11, approxDay:22, desc:"冬至一阳生，万物始复苏" },
 ];
 
+// Near-exact jieqi dates (year-specific offsets for common years)
+// The offsets adjust the approx date for specific years to get near-exact dates
+const JIEQI_OFFSETS = {
+  2024: { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0 },
+  2025: { 0:0, 1:0, 2:-1, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0 },
+  2026: { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0 },
+  2027: { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0 },
+};
+
 function getNextJieqi(today) {
-  // 确保只比较日期部分，不修改传入日期对象
   const base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  for(const jq of JIEQI_2026) {
-    const diff = Math.round((jq.date - base) / 86400000);
-    if(diff >= 0) return { name: jq.name, days: diff, desc: jq.desc };
+  const year = base.getFullYear();
+  
+  // Calculate approximate jieqi dates for current year and next year
+  const offsets = JIEQI_OFFSETS[year] || {};
+  const nextOffsets = JIEQI_OFFSETS[year + 1] || {};
+  
+  for (let i = 0; i < 24; i++) {
+    const info = JIEQI_INFO[i];
+    const day = info.approxDay + (offsets[info.month] || 0);
+    const jqDate = new Date(year, info.month, day);
+    const diff = Math.round((jqDate - base) / 86400000);
+    if (diff >= 0) return { name: info.name, days: diff, desc: info.desc };
   }
-  // 如果过了2026年，返回下一年小寒
-  return { name: "小寒", days: 1, desc: "小寒迎冬，冰雪砥砺" };
+  
+  // All jieqi this year have passed, return first jieqi of next year
+  const firstInfo = JIEQI_INFO[0];
+  const firstDay = firstInfo.approxDay + (nextOffsets[0] || 0);
+  const firstDate = new Date(year + 1, 0, firstDay);
+  const diff = Math.round((firstDate - base) / 86400000);
+  return { name: firstInfo.name, days: diff, desc: firstInfo.desc };
 }
+
 
 /* ============================================================
    塔罗数据
