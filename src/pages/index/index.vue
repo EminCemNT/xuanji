@@ -1,7 +1,12 @@
 <template>
   <view class="page-wrap">
-    <!-- 星空背景 -->
-    <canvas type="2d" id="stars-canvas" class="stars-canvas"></canvas>
+    <!-- 星空背景 (CSS动画，无Canvas依赖) -->
+    <view class="stars-bg">
+      <view class="star s1"></view><view class="star s2"></view><view class="star s3"></view>
+      <view class="star s4"></view><view class="star s5"></view><view class="star s6"></view>
+      <view class="star s7"></view><view class="star s8"></view><view class="star s9"></view>
+      <view class="star s10"></view><view class="star s11"></view><view class="star s12"></view>
+    </view>
     
     <!-- 日期导航栏 -->
     <view class="date-nav fade-in">
@@ -123,6 +128,40 @@
       </view>
     </view>
 
+    <!-- 日历弹窗 -->
+    <view class="calendar-overlay" :class="{ show: calendarVisible }" @tap="closeCalendar">
+      <view class="calendar-sheet" @tap.stop>
+        <view class="cal-header">
+          <view class="cal-nav-btn" @tap="calPrevMonth">‹</view>
+          <view class="cal-title">{{ calYear }}年 {{ calMonth }}月</view>
+          <view class="cal-nav-btn" @tap="calNextMonth">›</view>
+        </view>
+        <view class="cal-weekdays">
+          <text v-for="wd in ['日','一','二','三','四','五','六']" :key="wd" class="cal-wd">{{ wd }}</text>
+        </view>
+        <view class="cal-days">
+          <view
+            v-for="(day, idx) in calDays"
+            :key="idx"
+            class="cal-day"
+            :class="{
+              'cal-day-empty': !day.day,
+              'cal-day-today': day.isToday,
+              'cal-day-selected': day.isSelected
+            }"
+            @tap="day.day ? onCalDayTap(day) : null"
+          >
+            <text>{{ day.day || '' }}</text>
+            <text class="cal-day-lunar" v-if="day.lunar">{{ day.lunar }}</text>
+          </view>
+        </view>
+        <view class="cal-footer">
+          <view class="cal-footer-btn" @tap="calGoToday">回到今天</view>
+          <view class="cal-footer-btn cal-footer-btn-primary" @tap="calConfirm">确定</view>
+        </view>
+      </view>
+    </view>
+
     <!-- 黄历详情弹层 -->
     <view class="modal-overlay" :class="{ show: modalVisible }" @tap="hideModal">
       <view class="modal-sheet" @tap.stop>
@@ -187,8 +226,20 @@
 <script>
 import { getLunarDate, getDayData, getNextJieqi, getTodayTarot } from '@/utils/lunar.js'
 
+// 简化版农历日（只用日期数字）
+function getLunarDay(y, m, d) {
+  try {
+    const l = getLunarDate(new Date(y, m - 1, d))
+    const parts = l.lunarDay.match(/[^\d]*(\d+)/)
+    return parts ? parts[1] : l.lunarDay.slice(0, 2)
+  } catch (e) {
+    return ''
+  }
+}
+
 export default {
   data() {
+    const now = new Date()
     return {
       currentDate: null,
       navDateText: '',
@@ -204,7 +255,11 @@ export default {
       jieqiDays: 0,
       jieqiDesc: '',
       modalVisible: false,
-      starTimer: null
+      // 日历弹窗
+      calendarVisible: false,
+      pendingDate: null,   // 日历中临时选中的日期（未确认）
+      calYear: now.getFullYear(),
+      calMonth: now.getMonth() + 1
     }
   },
   computed: {
@@ -212,6 +267,37 @@ export default {
       if (!this.currentDate) return true
       const now = new Date()
       return this.currentDate.toDateString() === now.toDateString()
+    },
+    calDays() {
+      const y = this.calYear
+      const m = this.calMonth
+      const firstDay = new Date(y, m - 1, 1)
+      const startDow = firstDay.getDay() // 0=Sun
+      const totalDays = new Date(y, m, 0).getDate()
+      const today = new Date()
+      const todayStr = `${today.getFullYear()}/${today.getMonth()}/${today.getDate()}`
+      // 用 pendingDate 判断高亮，没有则用 currentDate
+      const pending = this.pendingDate || this.currentDate
+      const selStr = pending
+        ? `${pending.getFullYear()}/${pending.getMonth()}/${pending.getDate()}`
+        : ''
+
+      const cells = []
+      // 填充上月空白
+      for (let i = 0; i < startDow; i++) {
+        cells.push({ day: 0, isToday: false, isSelected: false, lunar: '' })
+      }
+      // 本月日期
+      for (let d = 1; d <= totalDays; d++) {
+        const ds = `${y}/${m - 1}/${d}`
+        cells.push({
+          day: d,
+          isToday: ds === todayStr,
+          isSelected: ds === selStr,
+          lunar: getLunarDay(y, m, d)
+        })
+      }
+      return cells
     }
   },
   onLoad() {
@@ -219,14 +305,8 @@ export default {
     this.currentDate.setHours(0, 0, 0, 0)
     this.refreshAll()
   },
-  onReady() {
-    this.$nextTick(() => {
-      this.initStarfield()
-    })
-  },
-  onUnload() {
-    if (this.starTimer) clearInterval(this.starTimer)
-  },
+  onReady() {},
+  onUnload() {},
   onShareAppMessage() {
     return {
       title: '玄机阁 · 每天5分钟，读懂今天的自己',
@@ -276,29 +356,50 @@ export default {
       this.refreshAll()
     },
     openDatePicker() {
-      // 使用微信原生日期选择器
-      const year = this.currentDate.getFullYear()
-      const month = this.currentDate.getMonth() + 1
-      const day = this.currentDate.getDate()
-      
-      // #ifdef MP-WEIXIN
-      wx.showModal({
-        title: '选择日期',
-        content: `当前：${year}年${month}月${day}日`,
-        showCancel: true,
-        cancelText: '返回今天',
-        confirmText: '我知道了',
-        success: (res) => {
-          if (res.cancel) {
-            this.goToday()
-          }
-        }
-      })
-      // #endif
-      
-      // #ifndef MP-WEIXIN
-      uni.showToast({ title: '请在微信小程序中体验此功能', icon: 'none' })
-      // #endif
+      // 打开时同步到当前选中日期
+      if (this.currentDate) {
+        this.calYear = this.currentDate.getFullYear()
+        this.calMonth = this.currentDate.getMonth() + 1
+      }
+      this.calendarVisible = true
+    },
+    closeCalendar() {
+      this.calendarVisible = false
+    },
+    calPrevMonth() {
+      if (this.calMonth === 1) {
+        this.calYear--
+        this.calMonth = 12
+      } else {
+        this.calMonth--
+      }
+    },
+    calNextMonth() {
+      if (this.calMonth === 12) {
+        this.calYear++
+        this.calMonth = 1
+      } else {
+        this.calMonth++
+      }
+    },
+    calGoToday() {
+      const now = new Date()
+      this.pendingDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      this.calYear = now.getFullYear()
+      this.calMonth = now.getMonth() + 1
+    },
+    calConfirm() {
+      if (this.pendingDate) {
+        this.currentDate = new Date(this.pendingDate)
+        this.pendingDate = null
+        this.refreshAll()
+      }
+      this.calendarVisible = false
+    },
+    onCalDayTap(day) {
+      // 只记录临时选择，不关闭弹窗
+      console.log('[onCalDayTap] day=' + day.day + ', setting pendingDate only')
+      this.pendingDate = new Date(this.calYear, this.calMonth - 1, day.day)
     },
     showModal() {
       this.modalVisible = true
@@ -314,54 +415,6 @@ export default {
     },
     goMbti() {
       uni.navigateTo({ url: '/pages/mbti/mbti' })
-    },
-    initStarfield() {
-      // 使用 uni-app canvas
-      const query = uni.createSelectorQuery().in(this)
-      query.select('#stars-canvas').fields({ node: true, size: true }).exec((res) => {
-        if (!res[0]) return
-        const canvas = res[0].node
-        const ctx = canvas.getContext('2d')
-        const dpr = uni.getSystemInfoSync().pixelRatio
-        
-        canvas.width = res[0].width * dpr
-        canvas.height = res[0].height * dpr
-        ctx.scale(dpr, dpr)
-        
-        const width = res[0].width
-        const height = res[0].height
-        
-        // 生成星星
-        const stars = []
-        for (let i = 0; i < 80; i++) {
-          stars.push({
-            x: Math.random() * width,
-            y: Math.random() * height,
-            r: Math.random() * 1.5 + 0.5,
-            alpha: Math.random(),
-            speed: Math.random() * 0.02 + 0.005
-          })
-        }
-        
-        const draw = () => {
-          ctx.clearRect(0, 0, width, height)
-          stars.forEach(s => {
-            s.alpha += s.speed
-            if (s.alpha > 1 || s.alpha < 0.2) s.speed *= -1
-            
-            ctx.beginPath()
-            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2)
-            ctx.fillStyle = `rgba(255,255,255,${s.alpha})`
-            ctx.fill()
-          })
-        }
-        
-        const animate = () => {
-          draw()
-          this.starTimer = setTimeout(() => animate(), 50)
-        }
-        animate()
-      })
     }
   }
 }
@@ -375,8 +428,8 @@ export default {
   min-height: 100vh;
 }
 
-/* 星空背景 */
-.stars-canvas {
+/* 星空背景 - CSS动画 */
+.stars-bg {
   position: fixed;
   top: 0;
   left: 0;
@@ -384,6 +437,32 @@ export default {
   height: 100%;
   z-index: 0;
   pointer-events: none;
+  overflow: hidden;
+}
+.star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #fff;
+  border-radius: 50%;
+  animation: twinkle 3s ease-in-out infinite;
+}
+.star.s1  { top: 5%; left: 10%; animation-delay: 0s; }
+.star.s2  { top: 12%; left: 25%; animation-delay: 0.3s; width: 2.5px; height: 2.5px; }
+.star.s3  { top: 8%; left: 45%; animation-delay: 0.7s; }
+.star.s4  { top: 18%; left: 65%; animation-delay: 1.2s; width: 1.5px; height: 1.5px; }
+.star.s5  { top: 3%; left: 80%; animation-delay: 1.8s; }
+.star.s6  { top: 22%; left: 90%; animation-delay: 0.5s; width: 3px; height: 3px; }
+.star.s7  { top: 35%; left: 5%; animation-delay: 2.1s; }
+.star.s8  { top: 45%; left: 20%; animation-delay: 1.5s; width: 2.5px; height: 2.5px; }
+.star.s9  { top: 55%; left: 40%; animation-delay: 0.8s; }
+.star.s10 { top: 65%; left: 60%; animation-delay: 2.4s; }
+.star.s11 { top: 75%; left: 85%; animation-delay: 1.1s; width: 1.5px; height: 1.5px; }
+.star.s12 { top: 90%; left: 12%; animation-delay: 0.2s; }
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
 }
 
 /* 日期导航栏 */
@@ -819,4 +898,85 @@ export default {
 .delay-1 { animation-delay: 0.1s; }
 .delay-2 { animation-delay: 0.2s; }
 .delay-3 { animation-delay: 0.3s; }
+
+/* ===== 日历弹窗 ===== */
+.calendar-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,0.65);
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s;
+}
+.calendar-overlay.show { opacity: 1; pointer-events: auto; }
+
+.calendar-sheet {
+  width: 100%; max-width: 420px;
+  background: #1a1a2e; border-radius: 20px 20px 0 0;
+  padding: 20px 16px 30px;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+}
+.calendar-overlay.show .calendar-sheet { transform: translateY(0); }
+
+.cal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.cal-nav-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(201,169,110,0.15); color: #c9a96e;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: bold;
+}
+.cal-title { font-size: 18px; font-weight: 600; color: #eee; }
+
+.cal-weekdays {
+  display: flex; justify-content: space-around;
+  margin-bottom: 8px; padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.cal-wd {
+  width: 40px; text-align: center; font-size: 13px; color: #888;
+}
+.cal-wd:first-child { color: #c9a96e; }
+
+.cal-days {
+  display: flex; flex-wrap: wrap;
+}
+.cal-day {
+  width: calc(100% / 7); aspect-ratio: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  border-radius: 12px; font-size: 16px; color: #ccc;
+  transition: background 0.15s;
+  box-sizing: border-box;
+}
+.cal-day-empty { pointer-events: none; }
+.cal-day-today {
+  background: rgba(201,169,110,0.12); color: #c9a96e; font-weight: 700;
+}
+.cal-day-selected {
+  background: rgba(201,169,110,0.3); color: #fff; font-weight: 700;
+  box-shadow: 0 0 0 2px #c9a96e;
+}
+.cal-day-lunar {
+  font-size: 10px; color: #777; margin-top: -2px;
+  white-space: nowrap; overflow: hidden; max-width: 36px; text-align: center;
+}
+.cal-day-today .cal-day-lunar { color: rgba(201,169,110,0.7); }
+.cal-day-selected .cal-day-lunar { color: rgba(255,255,255,0.6); }
+
+.cal-footer {
+  display: flex; gap: 12px; margin-top: 16px; padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.cal-footer-btn {
+  flex: 1; text-align: center; padding: 12px; border-radius: 10px;
+  font-size: 15px; font-weight: 600; color: #c9a96e;
+  background: rgba(201,169,110,0.1);
+}
+.cal-footer-btn-primary {
+  background: rgba(201,169,110,0.22);
+  color: #f0dca0;
+}
 </style>

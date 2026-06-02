@@ -125,7 +125,7 @@ export default {
       return this.questions[this.currentQ] || {}
     },
     progressPercent() {
-      return Math.round((this.currentQ / this.questions.length) * 100)
+      return Math.round(((this.currentQ + 1) / this.questions.length) * 100)
     },
     dimHint() {
       const dim = this.currentQuestion.dim

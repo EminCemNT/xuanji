@@ -142,6 +142,7 @@ export default {
       displayedReading: '',
       displayedDeepReading: '',
       typingTimer: null,
+      starStyles: [],
       
       questionTypes: [
         { type: 'love', icon: '💕', title: '爱情姻缘', desc: '感情走向、缘分指引' },
@@ -159,18 +160,18 @@ export default {
   computed: {
     remainingToPick() {
       return this.selectedSpread - this.selectedCards.length
-    },
-    starStyles() {
-      const styles = []
-      for (let i = 0; i < 50; i++) {
-        styles.push({
-          left: Math.random() * 100 + '%',
-          top: Math.random() * 100 + '%',
-          delay: Math.random() * 3 + 's'
-        })
-      }
-      return styles
     }
+  },
+  created() {
+    const styles = []
+    for (let i = 0; i < 50; i++) {
+      styles.push({
+        left: Math.random() * 100 + '%',
+        top: Math.random() * 100 + '%',
+        delay: Math.random() * 3 + 's'
+      })
+    }
+    this.starStyles = styles
   },
   onUnload() {
     if (this.typingTimer) clearInterval(this.typingTimer)

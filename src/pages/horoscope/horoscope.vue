@@ -1,7 +1,12 @@
 <template>
   <view class="page-wrap">
-    <!-- 星空背景 -->
-    <canvas type="2d" id="starCanvas" class="stars-canvas"></canvas>
+    <!-- 星空背景 (CSS动画) -->
+    <view class="stars-bg">
+      <view class="star s1"></view><view class="star s2"></view><view class="star s3"></view>
+      <view class="star s4"></view><view class="star s5"></view><view class="star s6"></view>
+      <view class="star s7"></view><view class="star s8"></view><view class="star s9"></view>
+      <view class="star s10"></view><view class="star s11"></view><view class="star s12"></view>
+    </view>
 
     <!-- 星座选择页 -->
     <view v-if="!selectedZodiac" class="select-page">
@@ -125,17 +130,8 @@ export default {
       luckyTime: '',
       matches: [],
       scoreIcons,
-      scoreLabels,
-      starTimer: null
+      scoreLabels
     }
-  },
-  onReady() {
-    this.$nextTick(() => {
-      this.initStarfield()
-    })
-  },
-  onUnload() {
-    if (this.starTimer) clearInterval(this.starTimer)
   },
   onShareAppMessage() {
     if (this.selectedZodiac) {
@@ -202,51 +198,7 @@ export default {
       uni.setClipboardData({ data: text })
       uni.showToast({ title: '已复制分享内容', icon: 'success' })
       // #endif
-    },
-    initStarfield() {
-      const query = uni.createSelectorQuery().in(this)
-      query.select('#starCanvas').fields({ node: true, size: true }).exec((res) => {
-        if (!res[0]) return
-        const canvas = res[0].node
-        const ctx = canvas.getContext('2d')
-        const dpr = uni.getSystemInfoSync().pixelRatio
-        
-        canvas.width = res[0].width * dpr
-        canvas.height = res[0].height * dpr
-        ctx.scale(dpr, dpr)
-        
-        const width = res[0].width
-        const height = res[0].height
-        const stars = []
-        for (let i = 0; i < 80; i++) {
-          stars.push({
-            x: Math.random() * width,
-            y: Math.random() * height,
-            r: Math.random() * 1.5 + 0.5,
-            alpha: Math.random(),
-            speed: Math.random() * 0.02 + 0.005
-          })
-        }
-        
-        const draw = () => {
-          ctx.clearRect(0, 0, width, height)
-          stars.forEach(s => {
-            s.alpha += s.speed
-            if (s.alpha > 1 || s.alpha < 0.2) s.speed *= -1
-            ctx.beginPath()
-            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2)
-            ctx.fillStyle = `rgba(255,255,255,${s.alpha})`
-            ctx.fill()
-          })
-        }
-        
-        const animate = () => {
-          draw()
-          this.starTimer = setTimeout(() => animate(), 50)
-        }
-        animate()
-      })
-    }
+  }
   }
 }
 </script>
@@ -259,13 +211,25 @@ export default {
   min-height: 100vh;
 }
 
-.stars-canvas {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  z-index: 0;
-  pointer-events: none;
+/* 星空背景 - CSS动画 */
+.stars-bg {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none; overflow: hidden;
 }
+.star { position: absolute; width: 2px; height: 2px; background: #fff; border-radius: 50%; animation: twinkle 3s ease-in-out infinite; }
+.star.s1  { top: 5%; left: 10%; animation-delay: 0s; }
+.star.s2  { top: 12%; left: 25%; animation-delay: 0.3s; width: 2.5px; height: 2.5px; }
+.star.s3  { top: 8%; left: 45%; animation-delay: 0.7s; }
+.star.s4  { top: 18%; left: 65%; animation-delay: 1.2s; width: 1.5px; height: 1.5px; }
+.star.s5  { top: 3%; left: 80%; animation-delay: 1.8s; }
+.star.s6  { top: 22%; left: 90%; animation-delay: 0.5s; width: 3px; height: 3px; }
+.star.s7  { top: 35%; left: 5%; animation-delay: 2.1s; }
+.star.s8  { top: 45%; left: 20%; animation-delay: 1.5s; width: 2.5px; height: 2.5px; }
+.star.s9  { top: 55%; left: 40%; animation-delay: 0.8s; }
+.star.s10 { top: 65%; left: 60%; animation-delay: 2.4s; }
+.star.s11 { top: 75%; left: 85%; animation-delay: 1.1s; width: 1.5px; height: 1.5px; }
+.star.s12 { top: 90%; left: 12%; animation-delay: 0.2s; }
+@keyframes twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
 
 /* 选择页 */
 .header {
