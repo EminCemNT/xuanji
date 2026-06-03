@@ -38,6 +38,7 @@
     <view v-if="page === 'quiz'" class="quiz-page">
       <view class="quiz-header">
         <view class="back-link" @tap="goBackToStart">← 返回</view>
+        <view class="exit-link" @tap="exitQuiz">退出</view>
         <view class="progress-wrap">
           <view class="progress-bar">
             <view class="progress-fill" :style="{ width: progressPercent + '%' }"></view>
@@ -100,6 +101,7 @@
         <view class="action-btn primary" @tap="restartQuiz">重新测试</view>
         <view class="action-btn" @tap="shareResult">分享结果</view>
       </view>
+      <view class="back-home-link" @tap="exitQuiz">← 返回首页</view>
     </view>
   </view>
 </template>
@@ -154,6 +156,9 @@ export default {
       this.page = 'start'
       this.currentQ = 0
       this.scores = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 }
+    },
+    exitQuiz() {
+      uni.navigateBack()
     },
     selectOption(index, value) {
       this.scores[value]++
@@ -306,6 +311,10 @@ export default {
 .back-link {
   color: #d4af37;
   font-size: 14px;
+}
+.exit-link {
+  color: #6a6580;
+  font-size: 13px;
 }
 .progress-wrap {
   flex: 1;
@@ -491,5 +500,12 @@ export default {
 .action-btn.primary {
   background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.1));
   border-color: rgba(212, 175, 55, 0.4);
+}
+
+.back-home-link {
+  text-align: center;
+  color: #6a6580;
+  font-size: 13px;
+  padding: 16px 0;
 }
 </style>

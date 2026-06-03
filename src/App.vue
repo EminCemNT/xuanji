@@ -1,9 +1,10 @@
 <script>
 export default {
   globalData: {
-    userInfo: null,
+    userName: '玄机旅人',
     level: 1,
-    exp: 0,
+    statReadings: 0,
+    statDays: 1,
     tasks: [],
     history: []
   },
@@ -25,10 +26,11 @@ export default {
         if (db) {
           const data = JSON.parse(db)
           this.globalData.level = data.level || 1
-          this.globalData.exp = data.exp || 0
+          this.globalData.statReadings = data.statReadings || 0
+          this.globalData.statDays = data.statDays || 1
           this.globalData.tasks = data.tasks || []
           this.globalData.history = data.history || []
-          this.globalData.userInfo = data.userInfo || null
+          this.globalData.userName = data.userName || '玄机旅人'
         }
       } catch (e) {
         console.error('Load storage failed:', e)
@@ -38,10 +40,11 @@ export default {
       try {
         const data = {
           level: this.globalData.level,
-          exp: this.globalData.exp,
+          statReadings: this.globalData.statReadings,
+          statDays: this.globalData.statDays,
           tasks: this.globalData.tasks,
           history: this.globalData.history,
-          userInfo: this.globalData.userInfo
+          userName: this.globalData.userName
         }
         uni.setStorageSync('xuanji_db', JSON.stringify(data))
       } catch (e) {

@@ -65,9 +65,8 @@ export const numbers = ['3', '7', '9', '12', '18', '21', '28', '33']
 export const scoreIcons = { love: '💕', career: '💼', wealth: '💰', health: '💪' }
 export const scoreLabels = { love: '爱情', career: '事业', wealth: '财运', health: '健康' }
 
-// 评分计算
-export function getFortuneScores(dateSeed, zodiacIndex) {
-  const seed = dateSeed + zodiacIndex * 1000
+// 评分计算（seed 已包含日期+星座+周期偏移量）
+export function getFortuneScores(seed) {
   return {
     love: (seed % 5) + 1,
     career: ((seed * 7) % 5) + 1,

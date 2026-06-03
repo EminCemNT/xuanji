@@ -204,7 +204,7 @@ export default {
         this.selectedCards = this.selectedCards.filter(i => i !== idx)
       } else {
         if (this.selectedCards.length >= this.selectedSpread) return
-        this.selectedCards.push(idx)
+        this.selectedCards = [...this.selectedCards, idx]
       }
     },
     revealCards() {
@@ -458,15 +458,22 @@ export default {
   margin-bottom: 20px;
 }
 .tarot-card-back {
-  aspect-ratio: 3/4;
+  height: 0;
+  padding-bottom: 133.33%;
+  position: relative;
   background: linear-gradient(135deg, #1a1060, #2a1b4e);
   border: 2px solid rgba(150, 80, 200, 0.3);
   border-radius: 10px;
+  transition: all 0.2s;
+}
+.tarot-card-back::after {
+  content: '🃏';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 24px;
-  transition: all 0.2s;
 }
 .tarot-card-back.selected {
   border-color: #d4af37;

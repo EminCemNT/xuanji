@@ -53,7 +53,7 @@
 
       <!-- 运势评分 -->
       <view class="glass-card">
-        <view class="card-title">今日评分</view>
+        <view class="card-title">{{ periodLabel }}评分</view>
         <view v-for="(score, key) in scores" :key="key" class="score-item">
           <text class="score-icon">{{ scoreIcons[key] }}</text>
           <view class="score-info">
@@ -133,6 +133,12 @@ export default {
       scoreLabels
     }
   },
+  computed: {
+    periodLabel() {
+      const map = { today: '今日', week: '本周', month: '本月' }
+      return map[this.currentPeriod] || '今日'
+    }
+  },
   onShareAppMessage() {
     if (this.selectedZodiac) {
       return {
@@ -163,10 +169,12 @@ export default {
       const today = new Date()
       const dateSeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate()
       const zodiacIndex = this.zodiacList.indexOf(this.selectedZodiac)
-      const seed = dateSeed + zodiacIndex * 1000
+      // 根据周期调整 seed，使日/周/月数据不同
+      const periodOffset = { today: 0, week: 1, month: 2 }[this.currentPeriod] || 0
+      const seed = dateSeed + zodiacIndex * 1000 + periodOffset
       
-      // 评分
-      this.scores = getFortuneScores(dateSeed, zodiacIndex)
+      // 评分（传入 seed，已包含周期偏移量）
+      this.scores = getFortuneScores(seed)
       
       // 运势概述
       const summaries = fortuneTemplates[this.currentPeriod] || fortuneTemplates.today

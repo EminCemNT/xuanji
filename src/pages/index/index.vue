@@ -166,7 +166,7 @@
     <view class="modal-overlay" :class="{ show: modalVisible }" @tap="hideModal">
       <view class="modal-sheet" @tap.stop>
         <view class="modal-handle"></view>
-        <view class="modal-title">今日黄历详解</view>
+        <view class="modal-title">{{ isToday ? '今日黄历详解' : navDateText + ' 黄历详解' }}</view>
         <view class="modal-subtitle">{{ navDateText }} · {{ lunarMain }}</view>
 
         <!-- 干支 -->
