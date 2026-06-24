@@ -263,7 +263,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v5.1 — Tier 1-3 全面升级
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v5.3';
+const GAME_VERSION = 'v5.4';
 const BUILD_DATE = '2026-06-24';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -484,28 +484,28 @@ const BOSS_PATTERNS = {
 
 // ==================== 动态难度递进 ====================
 function getDynamicScale(){
-  // 随高度增加难度系数: 基础1x, 每2000米+0.5x, 上限4x
-  return Math.min(4, 1 + heightM / 2000);
+  // 随高度增加难度系数: 基础1x, 每1500米+0.6x, 上限6x
+  return Math.min(6, 1 + heightM / 1500);
 }
 
 function getDynamicSpawnMin(){
   return Math.max(0.02, diffCfg.spawnMin / getDynamicScale());
 }
 function getDynamicSpawnMax(){
-  return Math.max(0.04, diffCfg.spawnMax / getDynamicScale());
+  return Math.max(0.03, diffCfg.spawnMax / getDynamicScale());
 }
 function getDynamicBulletSpeed(){
-  return diffCfg.bulletSpeedMult * Math.min(2.5, 1 + heightM * 0.00025); // 每1000米+25%，上限2.5x
+  return diffCfg.bulletSpeedMult * Math.min(4, 1 + heightM * 0.00035); // 每1000米+35%，上限4x
 }
 function getDynamicEnemyHP(baseHP){
-  return Math.floor(baseHP * Math.min(4, 1 + heightM * 0.0003)); // 每1000米+30%，上限4x
+  return Math.floor(baseHP * Math.min(6, 1 + heightM * 0.00045)); // 每1000米+45%，上限6x
 }
 function getDynamicBossHP(){
-  return Math.floor(diffCfg.bossHP * Math.min(3.5, 1 + heightM * 0.0002)); // 每1000米+20%，上限3.5x
+  return Math.floor(diffCfg.bossHP * Math.min(5, 1 + heightM * 0.00035)); // 每1000米+35%，上限5x
 }
 function getDynamicSpawnCount(){
   const base=diffCfg.spawnCount;
-  const extra=Math.floor(heightM/1500); // 每1500米+1
+  const extra=Math.floor(heightM/800); // 每800米+1怪
   return base + extra;
 }
 
@@ -521,11 +521,11 @@ const WEAPON_TYPES = {
     ]
   },
   laser: {
-    name:'激光炮', icon:'💠', color:'#f44', desc:'穿透光束，蓄力重炮',
+    name:'激光炮', icon:'💠', color:'#f44', desc:'射出穿透光柱',
     levels:[
-      {width:5,length:240,dmg:8,life:.10},
-      {width:9,length:340,dmg:15,life:.12},
-      {width:14,length:460,dmg:24,life:.14}
+      {width:6,length:140,speed:1600,dmg:10,life:.32},
+      {width:10,length:220,speed:2000,dmg:18,life:.34},
+      {width:14,length:320,speed:2400,dmg:30,life:.36}
     ]
   },
   refract: {
@@ -1109,8 +1109,8 @@ function shoot(p){
       playerBullets.push({x:p.x,y:ty,vx:Math.cos(a)*lvl.speed,vy:Math.sin(a)*lvl.speed,type:'spread',life:lvl.life,alive:true});
     }
   } else if(weaponType==='laser'){
-    // 激光束 — 即时判定 + 短暂持续渲染
-    playerBullets.push({x:p.x,y:ty,l:lvl.length,w:lvl.width,dmg:lvl.dmg,type:'laser',life:lvl.life,alive:true,hitThisFrame:new Set()});
+    // 激光弹 — 射出穿透光柱，向上飞行
+    playerBullets.push({x:p.x,y:ty,vx:0,vy:-lvl.speed,w:lvl.width,l:lvl.length,dmg:lvl.dmg,type:'laser',life:lvl.life,alive:true});
   } else if(weaponType==='refract'){
     for(let i=0;i<lvl.count;i++){
       const a=-Math.PI/2+(i-(lvl.count-1)/2)*.12;
@@ -1132,12 +1132,14 @@ function drawPlayerBullet(b){
   if(b.y<-60||b.y>H+60||b.x<-60||b.x>W+60) return;
   ctx.save();ctx.translate(b.x,b.y);
   if(b.type==='laser'){
+    // 激光弹 — 向上飞行的穿透光柱（坐标已translate到b.x,b.y）
     const g=ctx.createLinearGradient(0,0,0,-b.l);
+    const w=b.w,l=b.l;
     g.addColorStop(0,'#fff');g.addColorStop(.15,'#f44');g.addColorStop(.5,'#f22');g.addColorStop(1,'rgba(255,0,0,0)');
-    ctx.fillStyle=g;ctx.fillRect(-b.w/2,-b.l,b.w,b.l);
-    ctx.fillStyle='rgba(255,80,80,0.6)';ctx.fillRect(-1,-b.l,2,b.l);
+    ctx.fillStyle=g;ctx.fillRect(-w/2,-l,w,l);
+    ctx.fillStyle='rgba(255,80,80,0.6)';ctx.fillRect(-1,-l,2,l);
     ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,-b.l);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,-l);ctx.stroke();
   } else if(b.type==='refract'){
     ctx.fillStyle='#0f0';ctx.beginPath();
     for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6,r=6;if(i===0)ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r);else ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);}
@@ -1370,6 +1372,7 @@ function enemyShoot(e){
   // 性能保护：敌弹过多时停止生成新弹
   if(enemyBullets.length>180) return;
   const bsm=getDynamicBulletSpeed();
+  const dScale=getDynamicScale();
   if(e.type==='boss'){
     // 攻击预警：发射前闪烁
     e.telegraphTimer=0.3;
@@ -1382,25 +1385,47 @@ function enemyShoot(e){
   } else if(e.type==='large'){
     enemyBullets.push({x:e.x,y:e.y+15,vx:-40*bsm,vy:220*bsm,life:4,alive:true});
     enemyBullets.push({x:e.x,y:e.y+15,vx:40*bsm,vy:220*bsm,life:4,alive:true});
-    if(currentDifficulty==='hard'||currentDifficulty==='hell'){
+    if(currentDifficulty==='hard'||currentDifficulty==='hell'||dScale>2.5){
       enemyBullets.push({x:e.x,y:e.y+15,vx:0,vy:240*bsm,life:3.5,alive:true});
     }
-    // 高难度额外弹幕
-    if(getDynamicScale()>2){
+    // dScale>2: 侧向散射
+    if(dScale>2){
       enemyBullets.push({x:e.x-10,y:e.y+10,vx:-80*bsm,vy:200*bsm,life:3,alive:true});
       enemyBullets.push({x:e.x+10,y:e.y+10,vx:80*bsm,vy:200*bsm,life:3,alive:true});
     }
+    // dScale>3.5: 扇形散射
+    if(dScale>3.5){
+      for(let i=-2;i<=2;i++){
+        enemyBullets.push({x:e.x,y:e.y+10,vx:i*60*bsm,vy:(200+Math.abs(i)*30)*bsm,life:3.5,alive:true});
+      }
+    }
+    // dScale>5: 瞄准玩家方向射击
+    if(dScale>5&&player.alive){
+      const dx=player.x-e.x,dy=player.y-e.y,dist=Math.sqrt(dx*dx+dy*dy)||1;
+      enemyBullets.push({x:e.x,y:e.y,vx:dx/dist*180*bsm,vy:dy/dist*180*bsm,life:4,alive:true});
+    }
   } else if(e.type==='medium'){
     enemyBullets.push({x:e.x,y:e.y+10,vx:0,vy:200*bsm,life:3.5,alive:true});
-    if(getDynamicScale()>1.5){
+    if(dScale>1.5){
       enemyBullets.push({x:e.x-8,y:e.y+8,vx:-30*bsm,vy:180*bsm,life:3,alive:true});
       enemyBullets.push({x:e.x+8,y:e.y+8,vx:30*bsm,vy:180*bsm,life:3,alive:true});
     }
+    // dScale>4: 中怪也开始多方向射击
+    if(dScale>4){
+      for(let i=-1;i<=1;i+=2){
+        enemyBullets.push({x:e.x,y:e.y+8,vx:i*50*bsm,vy:170*bsm,life:3,alive:true});
+      }
+    }
   } else {
-    if(Math.random()<.4) enemyBullets.push({x:e.x,y:e.y+8,vx:0,vy:180*bsm,life:3,alive:true});
-    // 高难度小兵也发射
-    if(getDynamicScale()>2.5&&Math.random()<.3){
+    // 小兵射击概率随难度递进
+    const smallShootProb=Math.min(.9, .25 + dScale*.08);
+    if(Math.random()<smallShootProb) enemyBullets.push({x:e.x,y:e.y+8,vx:0,vy:180*bsm,life:3,alive:true});
+    if(dScale>2.5&&Math.random()<.3){
       enemyBullets.push({x:e.x,y:e.y+8,vx:(Math.random()-.5)*80*bsm,vy:150*bsm,life:2.5,alive:true});
+    }
+    // dScale>5: 小兵也疯狂
+    if(dScale>5&&Math.random()<.5){
+      enemyBullets.push({x:e.x,y:e.y+6,vx:(Math.random()-.5)*120*bsm,vy:140*bsm,life:2.5,alive:true});
     }
   }
 }
@@ -2010,9 +2035,7 @@ function update(now){
   const MAX_PLAYER_BULLETS=100;
   for(let i=playerBullets.length-1;i>=0;i--){
     const b=playerBullets[i];
-    // 激光不移动，只等计时结束
-    if(b.type!=='laser'){
-      if(b.type==='homing'){
+    if(b.type==='homing'){
         let nx=0,ny=-1,md=400;
         for(let j=enemies.length-1;j>=0;j--){const e=enemies[j];const dx=e.x-b.x,dy=e.y-b.y,d=Math.hypot(dx,dy);if(d<md){md=d;nx=dx/d;ny=dy/d;}}
         if(md<400){
@@ -2029,7 +2052,6 @@ function update(now){
         if(b.y<=10||b.y>=H-10){b.vy*=-1;b.bounces--;bounced=true;}
         if(bounced) b.life=Math.max(b.life,1.2); // 反弹刷新生命
       }
-    }
     b.life-=dt;
     if(b.y>H+30||b.y<-30||b.x<-30||b.x>W+30||b.life<=0||i>=MAX_PLAYER_BULLETS){playerBullets.splice(i,1);}
   }
@@ -2246,7 +2268,10 @@ function update(now){
       if(enemyBullets.length<180) enemyShoot(e);
       e.shootCooldown=e.shootTimer*(.8+Math.random()*.4)*diffCfg.shootRateMult;
     }
-    if(e.y>H+120||i>=MAX_ENEMIES) enemies.splice(i,1);
+    if(e.y>H+120||i>=MAX_ENEMIES){
+      if(e.type==='boss'&&bossFight===e) bossFight=null; // 清理飞走的Boss引用
+      enemies.splice(i,1);
+    }
   }
 
   // === 生成敌机 ===
@@ -2279,7 +2304,9 @@ function update(now){
   }
 
   // === Boss生成 ===
-  if(heightM>=nextBossAt&&!bossFight&&!enemies.some(e=>e.type==='boss')){
+  // 安全网：bossFight引用指向的对象不在敌人数组里时，清除引用
+  if(bossFight && !enemies.includes(bossFight)) bossFight=null;
+  if(heightM>=nextBossAt&&!bossFight){
     const boss=createEnemy('boss');
     boss.x=W/2;boss.y=-60;
     enemies.push(boss);bossFight=boss;
@@ -2305,9 +2332,9 @@ function update(now){
         queueStory(msg);
       }
     },500);
-    // Boss 间隔随 gameSpeed 适配
-    const bInt=diffCfg.bossInterval * Math.max(1, gameSpeed * .5);
-    nextBossAt+=bInt+Math.random()*(bInt*.25);waveTimer=2;
+    // Boss间隔：固定值，不随速度膨胀
+    nextBossAt+=diffCfg.bossInterval+Math.random()*(diffCfg.bossInterval*.3);
+    waveTimer=2;
   }
 
   // Boss飞出屏幕太远 → 安全清除（防止卡死）
@@ -2821,7 +2848,7 @@ window.addEventListener('resize',()=>{resize();initBg();});
 // 版本号显示
 document.getElementById('menu-version').textContent = GAME_VERSION + ' · ' + BUILD_DATE;
 
-console.log('🌌 星际风筝传说 ' + GAME_VERSION + ' — 性能优化');
+console.log('🌌 星际风筝传说 ' + GAME_VERSION + ' — 光束觉醒');
 console.log('  v5.3: 实体上限 · 原地清理 · 去ShadowBlur · Boss弹幕缩减 · 屏幕外裁剪');
 console.log('  v5.2: 连击音效升级 · Boss专属台词 · 15个成就 · 死亡分享截图卡');
 console.log('  性能: 粒子MAX300 · 敌弹MAX200 · 玩家弹MAX100 · 敌机MAX60 · 发射拦截');
