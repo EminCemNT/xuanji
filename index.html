@@ -263,7 +263,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v5.1 — Tier 1-3 全面升级
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v5.2';
+const GAME_VERSION = 'v5.3';
 const BUILD_DATE = '2026-06-24';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -381,8 +381,8 @@ const BOSS_PATTERNS = {
   military: { // 旋转炮台 + 散弹
     desc:'旋转炮台',patterns:[
       function(e,bsm){
-        for(let i=0;i<16;i++){
-          const a=i*Math.PI*2/16+frameCount*.08;
+        for(let i=0;i<10;i++){
+          const a=i*Math.PI*2/10+frameCount*.08;
           enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*170*bsm,vy:Math.sin(a)*100*bsm+150*bsm,life:4,alive:true});
         }
       },
@@ -456,25 +456,22 @@ const BOSS_PATTERNS = {
   void: { // 全屏弹幕 + 激光
     desc:'终焉弹幕',patterns:[
       function(e,bsm){
-        // 密集弹幕
-        for(let i=0;i<24;i++){
-          const a=i*Math.PI*2/24+frameCount*.03;
+        for(let i=0;i<14;i++){
+          const a=i*Math.PI*2/14+frameCount*.03;
           enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*200*bsm,vy:Math.sin(a)*200*bsm,life:4,alive:true});
         }
       },
       function(e,bsm){
-        // 交错弹幕
-        for(let i=0;i<14;i++){
-          const a=i*Math.PI*2/14;
+        for(let i=0;i<10;i++){
+          const a=i*Math.PI*2/10;
           const spd=180+Math.sin(frameCount*.1+i)*60;
           enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*spd*bsm,vy:Math.sin(a)*spd*bsm,life:3.5,alive:true});
         }
       },
       function(e,bsm){
-        // 多方向追踪
-        for(let i=0;i<5;i++){
+        for(let i=0;i<4;i++){
           const dx=player.x-e.x,dy=player.y-e.y,dist=Math.sqrt(dx*dx+dy*dy)||1;
-          const offA=(i-2)*.4;
+          const offA=(i-1.5)*.35;
           const cosA=Math.cos(offA),sinA=Math.sin(offA);
           const rdx=dx/dist*cosA-dy/dist*sinA;
           const rdy=dx/dist*sinA+dy/dist*cosA;
@@ -630,10 +627,14 @@ class Particle {
 }
 
 function spawnParticles(x,y,count,color,spread=100,life=0.6,size=2){
+  // 粒子数量保护：超过250时不生成新粒子
+  if(particles.length>250) return;
+  // 超过200时减半
+  if(particles.length>200) count=Math.ceil(count/2);
   for(let i=0;i<count;i++){
     const ang=Math.random()*Math.PI*2;
     const spd=Math.random()*spread*2+spread;
-    particles.push(new Particle(x,y,Math.cos(ang)*spd,Math.sin(ang)*spd,life+Math.random()*.3,color,size+Math.random()*2));
+    if(particles.length<300) particles.push(new Particle(x,y,Math.cos(ang)*spd,Math.sin(ang)*spd,life+Math.random()*.3,color,size+Math.random()*2));
   }
 }
 
@@ -1119,7 +1120,7 @@ function shoot(p){
     // 先找最近的敌人确定初始方向
     let targetA=-Math.PI/2;
     let minD=9999;
-    enemies.forEach(e=>{const d=Math.hypot(e.x-p.x,e.y-ty);if(d<minD){minD=d;targetA=Math.atan2(e.y-ty,e.x-p.x);}});
+    for(let i=0;i<enemies.length;i++){const e=enemies[i];const d=Math.hypot(e.x-p.x,e.y-ty);if(d<minD){minD=d;targetA=Math.atan2(e.y-ty,e.x-p.x);}}
     for(let i=0;i<lvl.count;i++){
       const a=targetA+(i-(lvl.count-1)/2)*.25;
       playerBullets.push({x:p.x+i*6-(lvl.count-1)*3,y:ty,vx:Math.cos(a)*lvl.speed,vy:Math.sin(a)*lvl.speed,type:'homing',speed:lvl.speed,turnRate:lvl.turnRate,life:lvl.life,alive:true});
@@ -1128,45 +1129,27 @@ function shoot(p){
   SFX.shoot();
 }
 function drawPlayerBullet(b){
+  if(b.y<-60||b.y>H+60||b.x<-60||b.x>W+60) return;
   ctx.save();ctx.translate(b.x,b.y);
   if(b.type==='laser'){
-    // 激光束 — 从当前位置向上画
     const g=ctx.createLinearGradient(0,0,0,-b.l);
     g.addColorStop(0,'#fff');g.addColorStop(.15,'#f44');g.addColorStop(.5,'#f22');g.addColorStop(1,'rgba(255,0,0,0)');
     ctx.fillStyle=g;ctx.fillRect(-b.w/2,-b.l,b.w,b.l);
-    ctx.shadowColor='#f44';ctx.shadowBlur=12;
     ctx.fillStyle='rgba(255,80,80,0.6)';ctx.fillRect(-1,-b.l,2,b.l);
-    ctx.shadowBlur=0;
-    // 光束核心白线
     ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1;
     ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,-b.l);ctx.stroke();
   } else if(b.type==='refract'){
-    // 折射弹 — 绿色六边形
-    ctx.shadowColor='#0f0';ctx.shadowBlur=10;
     ctx.fillStyle='#0f0';ctx.beginPath();
     for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6,r=6;if(i===0)ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r);else ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);}
     ctx.closePath();ctx.fill();
     ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,2.5,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;
-    // 尾迹
-    ctx.fillStyle='rgba(0,255,0,0.3)';ctx.fillRect(-2,0,4,6);
   } else if(b.type==='homing'){
-    // 追踪弹 — 黄色导弹形状
-    ctx.shadowColor='#ff0';ctx.shadowBlur=8;
     ctx.fillStyle='#ff0';ctx.beginPath();ctx.moveTo(0,-8);ctx.lineTo(4,0);ctx.lineTo(2,8);ctx.lineTo(-2,8);ctx.lineTo(-4,0);ctx.closePath();ctx.fill();
     ctx.fillStyle='#f80';ctx.beginPath();ctx.arc(0,0,3,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;
-    // 尾焰
-    ctx.fillStyle='rgba(255,136,0,0.4)';ctx.fillRect(-1.5,4,3,5);
   } else {
-    // spread — 原始青色子弹
-    const grad=ctx.createLinearGradient(0,8,0,-8);
-    grad.addColorStop(0,'#fff');grad.addColorStop(.4,'#0ff');grad.addColorStop(1,'rgba(0,200,255,0)');
-    ctx.fillStyle=grad;
+    ctx.fillStyle='#0cf';
     ctx.beginPath();ctx.moveTo(0,-10);ctx.lineTo(3,-2);ctx.lineTo(3,6);ctx.lineTo(0,8);ctx.lineTo(-3,6);ctx.lineTo(-3,-2);ctx.closePath();ctx.fill();
-    ctx.shadowColor='#0ff';ctx.shadowBlur=8;
-    ctx.fillStyle='rgba(0,255,255,0.4)';ctx.fillRect(-1,-8,2,14);ctx.shadowBlur=0;
-    if(Math.random()<.3) particles.push(new Particle(b.x,b.y+6,0,130,0.2,'#0cf',1.5));
+    ctx.fillStyle='rgba(255,255,255,0.6)';ctx.fillRect(-1,-8,2,14);
   }
   ctx.restore();
 }
@@ -1204,7 +1187,7 @@ function createEnemy(type='small'){
     small:{w:22,h:24,hp:1,score:100,speed:150,shootT:3},
     medium:{w:36,h:38,hp:3,score:300,speed:110,shootT:1.8},
     large:{w:52,h:56,hp:8,score:500,speed:70,shootT:1.2},
-    boss:{w:80,h:90,hp:50,score:2000,speed:40,shootT:0.4}
+    boss:{w:80,h:90,hp:50,score:2000,speed:40,shootT:0.6}
   };
   const t=types[type];
   // 名称为通用池+区域池混合
@@ -1384,6 +1367,8 @@ function drawEnemy(e){
 }
 
 function enemyShoot(e){
+  // 性能保护：敌弹过多时停止生成新弹
+  if(enemyBullets.length>180) return;
   const bsm=getDynamicBulletSpeed();
   if(e.type==='boss'){
     // 攻击预警：发射前闪烁
@@ -1421,11 +1406,11 @@ function enemyShoot(e){
 }
 
 function drawEnemyBullet(b){
+  if(b.y<-30||b.y>H+30||b.x<-30||b.x>W+30) return;
   ctx.save();ctx.translate(b.x,b.y);
-  const grad=ctx.createRadialGradient(0,-2,1,0,0,6);
-  grad.addColorStop(0,'#fff');grad.addColorStop(.3,'#f44');grad.addColorStop(1,'rgba(255,0,0,0)');
-  ctx.fillStyle=grad;ctx.beginPath();ctx.arc(0,0,6,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='rgba(255,50,50,0.3)';ctx.fillRect(-2,2,4,10);
+  ctx.fillStyle='rgba(255,50,50,0.6)';
+  ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.8)';ctx.beginPath();ctx.arc(0,-1,2,0,Math.PI*2);ctx.fill();
   ctx.restore();
 }
 
@@ -2002,13 +1987,15 @@ function update(now){
       else{player.shootRate=.06;player.invincible=Math.max(player.invincible,.05);}
     } else {player.shootRate=.18;}
 
-    if(Math.random()<.5){
+    // 粒子：只在总数<250时生成，降低频率
+    if(particles.length<250&&Math.random()<.15){
       particles.push(new Particle(player.x+(Math.random()-.5)*16,player.y+24,0,140+Math.random()*80,.4,'#0cf',1+Math.random()));
     }
   }
 
-  // === 粒子 ===
-  particles.forEach(p=>p.update(dt));particles=particles.filter(p=>p.alive);
+  // === 粒子（原地清理，避免每帧创建新数组） ===
+  const MAX_PARTICLES=300;
+  for(let i=particles.length-1;i>=0;i--){particles[i].update(dt);if(!particles[i].alive||i>=MAX_PARTICLES)particles.splice(i,1);}
 
   // === 得分飘字 ===
   scorePopups.forEach(s=>{s.y+=s.vy*dt;s.opacity-=.8*dt;if(s.opacity<0)s.opacity=0;});
@@ -2019,14 +2006,15 @@ function update(now){
   // === 成就弹窗 ===
   if(achievementPopupTimer>0){achievementPopupTimer-=dt;if(achievementPopupTimer<=0)showAchievement();}
 
-  // === 子弹 ===
-  playerBullets.forEach(b=>{
+  // === 子弹（原地清理） ===
+  const MAX_PLAYER_BULLETS=100;
+  for(let i=playerBullets.length-1;i>=0;i--){
+    const b=playerBullets[i];
     // 激光不移动，只等计时结束
     if(b.type!=='laser'){
       if(b.type==='homing'){
-        // 追踪弹：向最近敌人转向
         let nx=0,ny=-1,md=400;
-        enemies.forEach(e=>{const dx=e.x-b.x,dy=e.y-b.y,d=Math.hypot(dx,dy);if(d<md){md=d;nx=dx/d;ny=dy/d;}});
+        for(let j=enemies.length-1;j>=0;j--){const e=enemies[j];const dx=e.x-b.x,dy=e.y-b.y,d=Math.hypot(dx,dy);if(d<md){md=d;nx=dx/d;ny=dy/d;}}
         if(md<400){
           const tvx=nx*b.speed, tvy=ny*b.speed;
           const f=Math.min(1,b.turnRate*dt);
@@ -2043,13 +2031,14 @@ function update(now){
       }
     }
     b.life-=dt;
-    if(b.y>H+30||b.y<-30||b.x<-30||b.x>W+30||b.life<=0)b.alive=false;
-  });
-  playerBullets=playerBullets.filter(b=>b.alive);
-  // 敌弹更新 + 擦弹检测
-  enemyBullets.forEach(b=>{
+    if(b.y>H+30||b.y<-30||b.x<-30||b.x>W+30||b.life<=0||i>=MAX_PLAYER_BULLETS){playerBullets.splice(i,1);}
+  }
+  // 敌弹更新 + 擦弹检测（原地清理）
+  const MAX_ENEMY_BULLETS=200;
+  for(let i=enemyBullets.length-1;i>=0;i--){
+    const b=enemyBullets[i];
     b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
-    if(b.y>H+30||b.y<-30||b.x<-30||b.x>W+30||b.life<=0)b.alive=false;
+    if(b.y>H+30||b.y<-30||b.x<-30||b.x>W+30||b.life<=0||i>=MAX_ENEMY_BULLETS){enemyBullets.splice(i,1);continue;}
     // 擦弹检测：子弹离玩家14-45px范围内算擦弹
     if(player.alive&&!b._grazed){
       const gdx=b.x-player.x, gdy=b.y-player.y;
@@ -2058,29 +2047,26 @@ function update(now){
         b._grazed=true;
         grazeCount++;
         starStormGauge=Math.min(100, starStormGauge+2.2);
-        // 擦弹粒子特效
-        if(Math.random()<.35) particles.push(new Particle(b.x,b.y,0,0,.25,'#0cf',1.2));
       }
     }
-  });
+  }
   // 分裂弹逻辑
   for(let i=enemyBullets.length-1;i>=0;i--){
     const b=enemyBullets[i];
-    if(b.willSplit&&b.life<=0.3&&b.alive){
-      // 分裂成5个小弹，只向前方扇形散射（不再向后飞）
-      const baseAngle=Math.PI/2; // 正下方
-      const spread=Math.PI*0.7; // 前方约126°扇形
+    if(b.willSplit&&b.life<=0.3){
+      const baseAngle=Math.PI/2;
+      const spread=Math.PI*0.7;
       for(let j=0;j<5;j++){
         const a=baseAngle-spread/2+(j/(5-1))*spread;
-        enemyBullets.push({x:b.x,y:b.y,vx:Math.cos(a)*140,vy:Math.sin(a)*140,life:2,alive:true});
+        if(enemyBullets.length<MAX_ENEMY_BULLETS) enemyBullets.push({x:b.x,y:b.y,vx:Math.cos(a)*140,vy:Math.sin(a)*140,life:2,alive:true});
       }
-      b.alive=false;
+      enemyBullets.splice(i,1);
     }
   }
-  enemyBullets=enemyBullets.filter(b=>b.alive);
 
-  // === 道具 ===
-  items.forEach(it=>{
+  // === 道具（原地清理+收集） ===
+  for(let i=items.length-1;i>=0;i--){
+    const it=items[i];
     if(it.collecting){
       const dx=player.x-it.x,dy=player.y-it.y,dist=Math.sqrt(dx*dx+dy*dy)||1;
       const spd=600+it.collectSpeed;
@@ -2088,20 +2074,13 @@ function update(now){
       it.collectSpeed+=200*dt;
     } else {it.y+=it.vy*dt;}
     it.lived+=dt;
-    if(it.lived>it.maxLife||it.y>H+30) it.alive=false;
-  });
-  items=items.filter(it=>it.alive);
-
-  // === 道具收集 ===
-  for(let i=items.length-1;i>=0;i--){
-    const it=items[i];
+    if(it.lived>it.maxLife||it.y>H+30){items.splice(i,1);continue;}
+    // 收集检测
     const dx=it.x-player.x,dy=(it.y+(it.collecting?0:it.yoy))-player.y;
     const dist=Math.sqrt(dx*dx+dy*dy);
     const range=player.magnetTimer>0?player.magnetRange:40;
     if(dist<range&&!it.collecting){
-      // 道具飞入动画
       if(range>40){it.collecting=true;it.collectSpeed=0;}
-      // 拾取
       if(dist<28){
         applyItem(it);
         items.splice(i,1);
@@ -2254,18 +2233,21 @@ function update(now){
     }
   }
 
-  // === 敌机更新 ===
-  enemies.forEach(e=>{
+  // === 敌机更新（原地清理+数量上限） ===
+  const MAX_ENEMIES=60;
+  for(let i=enemies.length-1;i>=0;i--){
+    const e=enemies[i];
     e.y+=e.vy*dt;e.x+=e.vx*dt;
     if(e.x<20||e.x>W-20) e.vx*=-1;
     e.shootCooldown-=dt;
     if(e.telegraphTimer>0) e.telegraphTimer-=dt;
     if(e.shootCooldown<=0&&e.y>10&&e.y<H*.7){
-      enemyShoot(e);
+      // 只在敌弹未超上限时发射
+      if(enemyBullets.length<180) enemyShoot(e);
       e.shootCooldown=e.shootTimer*(.8+Math.random()*.4)*diffCfg.shootRateMult;
     }
-  });
-  enemies=enemies.filter(e=>e.y<H+100);
+    if(e.y>H+120||i>=MAX_ENEMIES) enemies.splice(i,1);
+  }
 
   // === 生成敌机 ===
   waveTimer-=dt;
@@ -2296,13 +2278,8 @@ function update(now){
     waveTimer=Math.max(.04,waveTimer/(1+gameSpeed*.08));
   }
 
-  // 敌机飞出屏幕底部 → 清理
-  for(let i=enemies.length-1;i>=0;i--){
-    if(enemies[i].y>H+120) enemies.splice(i,1);
-  }
-
   // === Boss生成 ===
-  if(heightM>=nextBossAt&&!bossFight&&enemies.filter(e=>e.type==='boss').length===0){
+  if(heightM>=nextBossAt&&!bossFight&&!enemies.some(e=>e.type==='boss')){
     const boss=createEnemy('boss');
     boss.x=W/2;boss.y=-60;
     enemies.push(boss);bossFight=boss;
@@ -2436,17 +2413,17 @@ function draw(offset){
   drawBg(offset);
   drawWeather(offset);
 
-  // 道具
-  items.forEach(it=>drawItem(it));
+  // 道具（屏幕外跳过）
+  for(let i=0;i<items.length;i++){const it=items[i];if(it.y>-50&&it.y<H+50) drawItem(it);}
 
-  // 敌机
-  enemies.forEach(e=>drawEnemy(e));
+  // 敌机（屏幕外跳过）
+  for(let i=0;i<enemies.length;i++){const e=enemies[i];if(e.y>-100&&e.y<H+100) drawEnemy(e);}
 
-  // 敌弹
-  enemyBullets.forEach(b=>drawEnemyBullet(b));
+  // 敌弹（屏幕外跳过）
+  for(let i=0;i<enemyBullets.length;i++){const b=enemyBullets[i];if(b.y>-50&&b.y<H+50) drawEnemyBullet(b);}
 
-  // 玩家子弹
-  playerBullets.forEach(b=>drawPlayerBullet(b));
+  // 玩家子弹（屏幕外跳过 - drawPlayerBullet内部已判断）
+  for(let i=0;i<playerBullets.length;i++) drawPlayerBullet(playerBullets[i]);
 
   // 玩家
   if(player.alive) drawPlayer(player);
@@ -2454,12 +2431,15 @@ function draw(offset){
   // 无人机
   if(drones.length>0) drawDrones();
 
-  // 粒子
-  particles.forEach(p=>{
-    ctx.fillStyle=p.color.replace('1)',`${p.alpha})`).replace('rgb','rgba');
-    ctx.shadowColor=p.color;ctx.shadowBlur=p.size*2;
-    ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.alpha,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-  });
+  // 粒子（去掉shadowBlur大幅提升性能）
+  for(let i=0;i<particles.length;i++){
+    const p=particles[i];
+    if(p.y<-50||p.y>H+50||p.x<-50||p.x>W+50) continue;
+    ctx.globalAlpha=p.alpha;
+    ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.alpha,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
 
   // 得分飘字
   scorePopups.forEach(s=>{
@@ -2841,14 +2821,10 @@ window.addEventListener('resize',()=>{resize();initBg();});
 // 版本号显示
 document.getElementById('menu-version').textContent = GAME_VERSION + ' · ' + BUILD_DATE;
 
-console.log('🌌 星际风筝传说 ' + GAME_VERSION + ' — 进化升级');
-console.log('  v5.2新增: 连击音效升级 · Boss专属台词 · 15个成就 · 死亡分享截图卡');
-console.log('  Tier1: Trauma²震屏 · 挤压拉伸 · 受击闪白 · 得分飘字 · Boss血条');
-console.log('  Tier2: 成就系统(x15) · 每日任务 · 连击升级音效 · 进度条 · 皮肤解锁');
-console.log('  Tier3: 关卡分区 · 5区域5主题 · Boss专属剧情台词 · 动态难度递进');
-console.log('  Tier4: 排行榜系统 · 区域切换提示 · 分裂弹 · 强制弹幕升级');
-console.log('  Tier5: 散射炮🔷 · 激光炮💠 · 折射弹💚 · 追踪弹💛 四大武器系统');
-console.log('  Tier6: 死亡分享截图卡 · 无人机司令成就 · Fever之王成就');
+console.log('🌌 星际风筝传说 ' + GAME_VERSION + ' — 性能优化');
+console.log('  v5.3: 实体上限 · 原地清理 · 去ShadowBlur · Boss弹幕缩减 · 屏幕外裁剪');
+console.log('  v5.2: 连击音效升级 · Boss专属台词 · 15个成就 · 死亡分享截图卡');
+console.log('  性能: 粒子MAX300 · 敌弹MAX200 · 玩家弹MAX100 · 敌机MAX60 · 发射拦截');
 console.log('  ☕ 支持作者: https://kodecoffee.com/i/kitelegend');
 // 预加载第一帧
 requestAnimationFrame(gameLoop);
