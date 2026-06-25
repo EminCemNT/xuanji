@@ -263,7 +263,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v5.1 — Tier 1-3 全面升级
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v5.6';
+const GAME_VERSION = 'v5.7';
 const BUILD_DATE = '2026-06-25';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -272,6 +272,8 @@ let W, H;
 let lastTime=0, dt=0;
 let gameRunning=false;
 let frameCount=0;
+// FPS自适应降级
+let _fpsSamples=[], _adaptMaxEB=200, _adaptMaxP=300;
 
 // 持久化数据
 const SAVE = {
@@ -569,9 +571,9 @@ const BOSS_SKILLS = {
   cosmic: [
     {name:'引力奇点', weight:3, cooldown:5, fn(e){ // 在随机位置创建引力点，子弹围绕它
       const gx=W*.2+Math.random()*W*.6, gy=H*.1+Math.random()*H*.3;
-      for(let i=0;i<20;i++){
-        const a=i*Math.PI*2/20;
-        enemyBullets.push({x:gx+Math.cos(a)*60,y:gy+Math.sin(a)*60,vx:-Math.cos(a)*120,vy:-Math.sin(a)*120,life:5,alive:true,bulletType:'orb',gravityTarget:{x:gx,y:gy,strength:300}});
+      for(let i=0;i<16;i++){
+        const a=i*Math.PI*2/16;
+        enemyBullets.push({x:e.x+Math.cos(a)*50,y:e.y+Math.sin(a)*50,vx:Math.cos(a)*60,vy:Math.sin(a)*60,life:3,alive:true,bulletType:'orb',gravityTarget:{x:gx,y:gy,strength:240}});
       }
     }},
     {name:'黑洞吞噬', weight:2, cooldown:8, fn(e){ // 吸收玩家子弹
@@ -768,14 +770,13 @@ class Particle {
 }
 
 function spawnParticles(x,y,count,color,spread=100,life=0.6,size=2){
-  // 粒子数量保护：超过250时不生成新粒子
-  if(particles.length>250) return;
-  // 超过200时减半
-  if(particles.length>200) count=Math.ceil(count/2);
+  // 粒子数量保护：超过自适应上限时减量
+  if(particles.length>_adaptMaxP) return;
+  if(particles.length>_adaptMaxP*.7) count=Math.ceil(count/2);
   for(let i=0;i<count;i++){
     const ang=Math.random()*Math.PI*2;
     const spd=Math.random()*spread*2+spread;
-    if(particles.length<300) particles.push(new Particle(x,y,Math.cos(ang)*spd,Math.sin(ang)*spd,life+Math.random()*.3,color,size+Math.random()*2));
+    if(particles.length<_adaptMaxP) particles.push(new Particle(x,y,Math.cos(ang)*spd,Math.sin(ang)*spd,life+Math.random()*.3,color,size+Math.random()*2));
   }
 }
 
@@ -1544,7 +1545,7 @@ function drawEnemy(e){
 
 function enemyShoot(e){
   // 性能保护：敌弹过多时停止生成新弹
-  if(enemyBullets.length>180) return;
+  if(enemyBullets.length>_adaptMaxEB*.9) return;
   const bsm=getDynamicBulletSpeed();
   const dScale=getDynamicScale();
   if(e.type==='boss'){
@@ -1609,7 +1610,7 @@ function drawEnemyBullet(b){
   const bt=b.bulletType||'normal';
   const cfg=ENEMY_BULLET_TYPES[bt]||ENEMY_BULLET_TYPES['normal'];
   // 性能降级：子弹数量多时只画普通形式
-  const lowDetail=enemyBullets.length>150;
+  const lowDetail=enemyBullets.length>_adaptMaxEB*.75;
   const bx=b.x,by=b.y;
   ctx.save();ctx.translate(bx,by);
   if(b.isBeam||bt==='laser'){
@@ -2164,6 +2165,15 @@ function update(now){
   if(dt<=0) dt=0.016;
   lastTime=now;frameCount++;gameTime+=dt;
 
+  // FPS自适应降级：每60帧采样一次，低于22fps自动收紧上限
+  if(frameCount%60===0&&dt>0){
+    const fps=1/dt;
+    _fpsSamples.push(fps);if(_fpsSamples.length>5)_fpsSamples.shift();
+    const avgFps=_fpsSamples.reduce((a,b)=>a+b,0)/_fpsSamples.length;
+    if(avgFps<22){_adaptMaxEB=Math.max(80,_adaptMaxEB-20);_adaptMaxP=Math.max(100,_adaptMaxP-30);}
+    else if(avgFps>40){_adaptMaxEB=Math.min(200,_adaptMaxEB+10);_adaptMaxP=Math.min(300,_adaptMaxP+20);}
+  }
+
   if(hitStop>0){hitStop-=dt;dt*=.1;}
 
   // Trauma²震屏衰减
@@ -2249,7 +2259,7 @@ function update(now){
   }
 
   // === 粒子（原地清理，避免每帧创建新数组） ===
-  const MAX_PARTICLES=300;
+  const MAX_PARTICLES=_adaptMaxP;
   for(let i=particles.length-1;i>=0;i--){particles[i].update(dt);if(!particles[i].alive||i>=MAX_PARTICLES)particles.splice(i,1);}
 
   // === 得分飘字 ===
@@ -2286,7 +2296,7 @@ function update(now){
     if(b.y>H+30||b.y<-30||b.x<-30||b.x>W+30||b.life<=0||i>=MAX_PLAYER_BULLETS){playerBullets.splice(i,1);}
   }
   // 敌弹更新 + 擦弹检测 + 特殊行为（原地清理）
-  const MAX_ENEMY_BULLETS=200;
+  const MAX_ENEMY_BULLETS=_adaptMaxEB;
   for(let i=enemyBullets.length-1;i>=0;i--){
     const b=enemyBullets[i];
     b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
@@ -2312,9 +2322,10 @@ function update(now){
       b._homingLife+=dt*2;
       if(b._homingLife>2) b._homingLocked=true;
     }
-    // 波形弹：正弦偏移（每2帧更新一次）
+    // 波形弹：初始化时记录基础速度，偶数帧叠加横向正弦偏移
     if(b.bulletType==='wave'&&!b._waveApplied){
       b._waveBaseAngle=Math.atan2(b.vy,b.vx);
+      b._waveBaseSpd=Math.sqrt(b.vx*b.vx+b.vy*b.vy)||180;
       b._cosA=Math.cos(b._waveBaseAngle);b._sinA=Math.sin(b._waveBaseAngle);
       b._cosPerpA=Math.cos(b._waveBaseAngle+Math.PI/2);b._sinPerpA=Math.sin(b._waveBaseAngle+Math.PI/2);
       b._waveSpeed=b.waveSpeed||(2+Math.random()*3);
@@ -2322,18 +2333,24 @@ function update(now){
       b._waveApplied=true;
     }
     if(b.bulletType==='wave'&&b._waveApplied&&(frameCount&1)===0){
-      const spd=Math.sqrt(b.vx*b.vx+b.vy*b.vy)||180;
-      const offset=Math.sin(b.life*b._waveSpeed*8+b._wavePhase)*22;
-      b.vx=b._cosA*spd+b._cosPerpA*offset*3*dt;
-      b.vy=b._sinA*spd+b._sinPerpA*offset*3*dt;
+      // 用计数器替代life计算，避免maxLife依赖
+      b._wt=(b._wt||0)+0.033;
+      const offset=Math.sin(b._wt*b._waveSpeed*8+b._wavePhase)*18;
+      b.vx=b._cosA*b._waveBaseSpd+b._cosPerpA*offset;
+      b.vy=b._sinA*b._waveBaseSpd+b._sinPerpA*offset;
     }
-    // 引力弹（orb类且带gravityTarget）
-    if(b.gravityTarget&&b.life>1){
+    // 引力弹（orb类且带gravityTarget）— 仅在远离引力中心时施力，防止打转积累
+    if(b.gravityTarget&&b.life>0.5){
       const gx=b.gravityTarget.x,gy=b.gravityTarget.y;
       const gdx=gx-b.x,gdy=gy-b.y,gdist=Math.sqrt(gdx*gdx+gdy*gdy)||1;
-      if(gdist<300){
-        b.vx+=(gdx/gdist)*b.gravityTarget.strength*dt;
-        b.vy+=(gdy/gdist)*b.gravityTarget.strength*dt;
+      // 引力只在距中心50-280px范围内生效，太近时反向推开，防止聚集打转
+      if(gdist<280){
+        const strength=gdist<60?-200:b.gravityTarget.strength*0.8; // 太近时反推
+        b.vx+=(gdx/gdist)*strength*dt;
+        b.vy+=(gdy/gdist)*strength*dt;
+        // 限制最大速度防止失控加速
+        const maxSpd=350;const curSpd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
+        if(curSpd>maxSpd){b.vx=b.vx/curSpd*maxSpd;b.vy=b.vy/curSpd*maxSpd;}
       }
     }
     // 擦弹检测：子弹离玩家14-45px范围内算擦弹
@@ -2347,19 +2364,7 @@ function update(now){
       }
     }
   }
-  // 分裂弹逻辑
-  for(let i=enemyBullets.length-1;i>=0;i--){
-    const b=enemyBullets[i];
-    if(b.willSplit&&b.life<=0.3){
-      const baseAngle=Math.PI/2;
-      const spread=Math.PI*0.7;
-      for(let j=0;j<5;j++){
-        const a=baseAngle-spread/2+(j/(5-1))*spread;
-        if(enemyBullets.length<MAX_ENEMY_BULLETS) enemyBullets.push({x:b.x,y:b.y,vx:Math.cos(a)*140,vy:Math.sin(a)*140,life:2,alive:true,bulletType:'wave'});
-      }
-      enemyBullets.splice(i,1);
-    }
-  }
+  // 注：分裂弹已在上方主循环中处理（willSplit在life<=0时爆炸），此处无需重复处理
 
   // === 道具（原地清理+收集） ===
   for(let i=items.length-1;i>=0;i--){
@@ -2545,13 +2550,13 @@ function update(now){
     if(e.invulnerable>0) e.invulnerable-=dt;
     if(e.shootCooldown<=0&&e.y>10&&e.y<H*.7){
       // 只在敌弹未超上限时发射
-      if(enemyBullets.length<180) enemyShoot(e);
+      if(enemyBullets.length<_adaptMaxEB*.9) enemyShoot(e);
       e.shootCooldown=e.shootTimer*(.8+Math.random()*.4)*diffCfg.shootRateMult;
     }
     // Boss技能系统
     if(e.type==='boss'&&e.y>10){
       if(e.skillTimer>0) e.skillTimer-=dt;
-      if(e.skillTimer<=0&&enemyBullets.length<160){
+      if(e.skillTimer<=0&&enemyBullets.length<_adaptMaxEB*.8){
         const skills=BOSS_SKILLS[e.bossType]||BOSS_SKILLS['corporate'];
         if(skills&&skills.length>0){
           // 权重随机选技能
