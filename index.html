@@ -263,7 +263,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v6.0.1';
+const GAME_VERSION = 'v6.0.2';
 const BUILD_DATE = '2026-06-25';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -2566,11 +2566,18 @@ function update(now){
         }
       }
     }
-    // Boss永不因数量上限被清理；只移除飞出场外或被击杀的Boss
-    if(e.y>H+120||(e.type!=='boss'&&i>=MAX_ENEMIES)){
+    // 仅移出屏幕外的敌人（不含Boss上限清理——改到循环后从头删）
+    if(e.y>H+120){
       if(e.type==='boss'&&bossFight===e) bossFight=null;
       enemies.splice(i,1);
     }
+  }
+  // 超出上限时从头部删除最老的敌人（而非末尾的新敌人），保持换区时新区颜色敌人存活
+  while(enemies.length>MAX_ENEMIES){
+    let rmIdx=enemies.findIndex(e=>e.type!=='boss');
+    if(rmIdx<0) break;
+    if(enemies[rmIdx]===bossFight) bossFight=null;
+    enemies.splice(rmIdx,1);
   }
 
   // === 生成敌机 ===
