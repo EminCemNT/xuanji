@@ -263,7 +263,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v5.1 — Tier 1-3 全面升级
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v5.7';
+const GAME_VERSION = 'v5.8';
 const BUILD_DATE = '2026-06-25';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -2165,13 +2165,13 @@ function update(now){
   if(dt<=0) dt=0.016;
   lastTime=now;frameCount++;gameTime+=dt;
 
-  // FPS自适应降级：每60帧采样一次，低于22fps自动收紧上限
-  if(frameCount%60===0&&dt>0){
-    const fps=1/dt;
-    _fpsSamples.push(fps);if(_fpsSamples.length>5)_fpsSamples.shift();
+  // FPS自适应降级：每15帧采样，更快响应 — 低于25fps立刻收紧
+  if(frameCount%15===0&&dt>0.001){
+    const fps=1/Math.max(dt,0.0001);
+    _fpsSamples.push(fps);if(_fpsSamples.length>3)_fpsSamples.shift();
     const avgFps=_fpsSamples.reduce((a,b)=>a+b,0)/_fpsSamples.length;
-    if(avgFps<22){_adaptMaxEB=Math.max(80,_adaptMaxEB-20);_adaptMaxP=Math.max(100,_adaptMaxP-30);}
-    else if(avgFps>40){_adaptMaxEB=Math.min(200,_adaptMaxEB+10);_adaptMaxP=Math.min(300,_adaptMaxP+20);}
+    if(avgFps<25){_adaptMaxEB=Math.max(60,_adaptMaxEB-30);_adaptMaxP=Math.max(60,_adaptMaxP-40);}
+    else if(avgFps>45){_adaptMaxEB=Math.min(200,_adaptMaxEB+8);_adaptMaxP=Math.min(300,_adaptMaxP+15);}
   }
 
   if(hitStop>0){hitStop-=dt;dt*=.1;}
@@ -2548,15 +2548,16 @@ function update(now){
     e.shootCooldown-=dt;
     if(e.telegraphTimer>0) e.telegraphTimer-=dt;
     if(e.invulnerable>0) e.invulnerable-=dt;
+    // Boss战硬封顶：超过120颗敌弹时暂停发射+技能
+    const ebHardCap=bossFight?120:(_adaptMaxEB*.9);
     if(e.shootCooldown<=0&&e.y>10&&e.y<H*.7){
-      // 只在敌弹未超上限时发射
-      if(enemyBullets.length<_adaptMaxEB*.9) enemyShoot(e);
+      if(enemyBullets.length<ebHardCap) enemyShoot(e);
       e.shootCooldown=e.shootTimer*(.8+Math.random()*.4)*diffCfg.shootRateMult;
     }
     // Boss技能系统
     if(e.type==='boss'&&e.y>10){
       if(e.skillTimer>0) e.skillTimer-=dt;
-      if(e.skillTimer<=0&&enemyBullets.length<_adaptMaxEB*.8){
+      if(e.skillTimer<=0&&enemyBullets.length<ebHardCap*.75){
         const skills=BOSS_SKILLS[e.bossType]||BOSS_SKILLS['corporate'];
         if(skills&&skills.length>0){
           // 权重随机选技能
@@ -2873,21 +2874,32 @@ function draw(offset){
     ctx.fillStyle='#ff0';ctx.fillRect(hudX+4+i*10,150,8,14);
     ctx.strokeStyle='#880';ctx.lineWidth=.5;ctx.strokeRect(hudX+4+i*10,150,8,14);
   }
-  // 星风暴能量槽
-  ctx.fillStyle='#0cf';ctx.font='bold 11px sans-serif';ctx.fillText('STORRM',hudX+4,180);
-  ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(hudX+4,184,90,8);
+  // 玩家HP条
+  const hpBarW=90,hpBarH=8,hpy=176;
+  ctx.fillStyle='#0cf';ctx.font='bold 11px sans-serif';ctx.fillText('HP '+player.hp+'/'+player.maxHp,hudX+4,hpy-2);
+  ctx.fillStyle='rgba(40,0,0,0.6)';ctx.fillRect(hudX+4,hpy,hpBarW,hpBarH);
+  const hpPct=player.hp/player.maxHp;
+  const hpGrad=ctx.createLinearGradient(hudX+4,0,hudX+4+hpBarW,0);
+  hpGrad.addColorStop(0,'#f44');hpGrad.addColorStop(.5,'#f66');hpGrad.addColorStop(1,'#f44');
+  ctx.fillStyle=hpPct>.35?hpGrad:'#f00';
+  if(hpPct<=.25&&Math.sin(frameCount*.3)>0) ctx.fillStyle='#ff0'; // 低血量闪烁
+  ctx.fillRect(hudX+4,hpy,hpBarW*hpPct,hpBarH);
+  ctx.strokeStyle='rgba(255,80,80,0.5)';ctx.lineWidth=1;ctx.strokeRect(hudX+4,hpy,hpBarW,hpBarH);
+  // 星风暴能量槽（下移）
+  ctx.fillStyle='#0cf';ctx.font='bold 11px sans-serif';ctx.fillText('STORRM',hudX+4,204);
+  ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(hudX+4,208,90,8);
   const sgPct=starStormGauge/100;
   const sgGrad=ctx.createLinearGradient(hudX+4,0,hudX+4+90*sgPct,0);
   sgGrad.addColorStop(0,'#0cf');sgGrad.addColorStop(1,sgPct>=1?'#0ff':'#086');
-  ctx.fillStyle=sgGrad;ctx.fillRect(hudX+4,184,90*sgPct,8);
+  ctx.fillStyle=sgGrad;ctx.fillRect(hudX+4,208,90*sgPct,8);
   if(starStormGauge>=100){
     ctx.fillStyle='#0ff';ctx.font='bold 10px monospace';ctx.textAlign='center';
     ctx.shadowColor='#0ff';ctx.shadowBlur=8;
-    ctx.fillText('⭐ READY!',hudX+50,200);
+    ctx.fillText('⭐ READY!',hudX+50,224);
     ctx.shadowBlur=0;
   } else {
     ctx.fillStyle='rgba(0,200,255,0.4)';ctx.font='9px monospace';ctx.textAlign='center';
-    ctx.fillText(Math.floor(starStormGauge)+'%',hudX+50,200);
+    ctx.fillText(Math.floor(starStormGauge)+'%',hudX+50,224);
   }
   ctx.textAlign='left';
 
@@ -2921,29 +2933,6 @@ function draw(offset){
     ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
     ctx.fillText(`BOSS ${Math.floor(hpR*100)}%`,W/2,by+11);
     ctx.textAlign='left';
-  }
-
-  // 玩家HP心形 (顶部居中)
-  const heartSize=14,heartGap=4,heartY=26;
-  const totalHw=player.maxHp*heartSize+(player.maxHp-1)*heartGap;
-  const heartStartX=(W-totalHw)/2;
-  for(let i=0;i<player.maxHp;i++){
-    const hx=heartStartX+i*(heartSize+heartGap);
-    const alive=i<player.hp;
-    const lowHP=player.hp<=1&&alive;
-    // 闪烁/跳动
-    const pulse=alive&&lowHP?1+Math.sin(frameCount*.5)*.15:1;
-    ctx.save();
-    ctx.translate(hx+heartSize/2,heartY+heartSize/2);
-    ctx.scale(pulse,pulse);
-    drawHeart(-heartSize/2,-heartSize/2,heartSize,alive?'#f44':'rgba(100,30,30,.5)');
-    if(alive){
-      ctx.shadowColor='#f44';ctx.shadowBlur=lowHP?8:3;
-      ctx.fillStyle=lowHP?'#f00':'#f44';
-      drawHeartPath(-heartSize/2+1,-heartSize/2+1,heartSize-2);
-      ctx.fill();ctx.shadowBlur=0;
-    }
-    ctx.restore();
   }
 
   // 进度条 (底部)
