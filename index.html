@@ -263,7 +263,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v6.0.2';
+const GAME_VERSION = 'v6.1.0';
 const BUILD_DATE = '2026-06-25';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -638,13 +638,13 @@ function getDynamicSpawnMax(){
   return Math.max(0.03, diffCfg.spawnMax / getDynamicScale());
 }
 function getDynamicBulletSpeed(){
-  return diffCfg.bulletSpeedMult * Math.min(4, 1 + heightM * 0.00035); // 每1000米+35%，上限4x
+  return diffCfg.bulletSpeedMult * Math.min(5, 1 + heightM * 0.0006); // 每1000米+60%，上限5x
 }
 function getDynamicEnemyHP(baseHP){
-  return Math.floor(baseHP * Math.min(6, 1 + heightM * 0.00045)); // 每1000米+45%，上限6x
+  return Math.floor(baseHP * Math.min(12, 1 + heightM * 0.0008)); // 每1000米+80%，上限12x
 }
 function getDynamicBossHP(){
-  return Math.floor(diffCfg.bossHP * Math.min(5, 1 + heightM * 0.00035)); // 每1000米+35%，上限5x
+  return Math.floor(diffCfg.bossHP * Math.min(8, 1 + heightM * 0.0006)); // 每1000米+60%，上限8x
 }
 function getDynamicSpawnCount(){
   const base=diffCfg.spawnCount;
@@ -660,7 +660,7 @@ const WEAPON_TYPES = {
     levels:[
       {count:1,spread:0,speed:900,life:2.5},
       {count:3,spread:0.12,speed:900,life:2.5},
-      {count:5,spread:0.08,speed:950,life:2.5}
+      {count:7,spread:0.12,speed:950,life:2.5}
     ]
   },
   laser: {
@@ -674,9 +674,9 @@ const WEAPON_TYPES = {
   refract: {
     name:'折射弹', icon:'💚', color:'#0f0', desc:'边界反弹弹幕',
     levels:[
-      {count:1,bounces:1,speed:600,life:4},
-      {count:2,bounces:2,speed:650,life:4},
-      {count:3,bounces:3,speed:700,life:4.5}
+      {count:1,bounces:1,speed:500,life:3},
+      {count:2,bounces:2,speed:550,life:3},
+      {count:3,bounces:2,speed:600,life:3}
     ]
   },
   homing: {
@@ -2435,7 +2435,7 @@ function update(now){
         if(Math.abs(b.x-e.x)<e.w/2+4&&Math.abs(b.y-e.y)<e.h/2+4){
           if(e.invulnerable>0){spawnParticles(e.x,e.y,1,'#a4f',20,.1,.5);continue;} // Boss无敌
           e.hp-=(weaponEvolved?2:1);e.flashTimer=.06;
-          if(b.type!=='refract') playerBullets.splice(bi,1);
+          playerBullets.splice(bi,1);
           spawnParticles(b.x,b.y,4,'#0ff',40,.2,1.5);
           SFX.hit(e.type==='boss'?150:(e.type==='large'?250:500));
           if(e.hp<=0){
@@ -2533,7 +2533,7 @@ function update(now){
   // === 敌机更新（原地清理+数量上限） ===
   // 动态上限：dScale越高，同屏怪物越少（保持视觉可读性和性能）
   const dScaleNow=getDynamicScale();
-  const MAX_ENEMIES=dScaleNow>4.5?30:(dScaleNow>3?40:60);
+  const MAX_ENEMIES=dScaleNow>6?40:(dScaleNow>4?50:65);
   for(let i=enemies.length-1;i>=0;i--){
     const e=enemies[i];
     e.y+=e.vy*dt;e.x+=e.vx*dt;
@@ -2598,7 +2598,7 @@ function update(now){
     let count=getDynamicSpawnCount();
     if(bossFight) count=Math.ceil(count*.4);
     // 生成时也检查动态上限（避免瞬间超出）
-    const spawnLimit=dScaleNow>4.5?30:(dScaleNow>3?40:60);
+    const spawnLimit=dScaleNow>6?40:(dScaleNow>4?50:65);
     if(enemies.length>=spawnLimit) count=0;
     else count=Math.min(count, spawnLimit-enemies.length);
     for(let i=0;i<count;i++){
