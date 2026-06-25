@@ -263,8 +263,8 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v6.1.0';
-const BUILD_DATE = '2026-06-25';
+const GAME_VERSION = 'v6.2';
+const BUILD_DATE = '2026-06-26';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 canvas.style.imageRendering = 'auto';
@@ -498,82 +498,82 @@ const ENEMY_BULLET_TYPES = {
 // ==================== Boss技能系统 ====================
 const BOSS_SKILLS = {
   corporate: [
-    {name:'需求风暴', weight:3, cooldown:4.5, fn(e){ // 召唤一圈慢速弹幕环形扩散
-      for(let i=0;i<16;i++){
-        const a=i*Math.PI*2/16;
-        enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*80,vy:Math.sin(a)*80,life:5,alive:true,bulletType:'orb',isSkill:true});
+    {name:'需求风暴', weight:3, cooldown:4.5, fn(e){ // 一圈弹幕8发(原16)
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI*2/8;
+        enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*80,vy:Math.sin(a)*80,life:4,alive:true,bulletType:'orb',isSkill:true});
       }
     }},
-    {name:'会议召集', weight:2, cooldown:6, fn(e){ // 召唤3个中型敌兵
-      for(let i=0;i<3;i++){
+    {name:'会议召集', weight:2, cooldown:6, fn(e){ // 召唤2个中型敌兵(原3)
+      for(let i=0;i<2;i++){
         const m=createEnemy('medium');
         m.x=e.x+(Math.random()-.5)*120; m.y=e.y-30+Math.random()*30;
         m.name='会议代表';
         enemies.push(m);
       }
     }},
-    {name:'改稿风暴', weight:3, cooldown:5, fn(e){ // 波浪弹幕群
-      for(let layer=0;layer<3;layer++){
-        for(let i=0;i<8;i++){
-          const a=i*Math.PI*2/8;
-          enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*(100+layer*40),vy:Math.sin(a)*(80+layer*30)+60,life:4,alive:true,bulletType:'wave'});
+    {name:'改稿风暴', weight:3, cooldown:5, fn(e){ // 波浪弹幕群 2层×6发(原3×8)
+      for(let layer=0;layer<2;layer++){
+        for(let i=0;i<6;i++){
+          const a=i*Math.PI*2/6;
+          enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*(100+layer*40),vy:Math.sin(a)*(80+layer*30)+60,life:3.5,alive:true,bulletType:'wave'});
         }
       }
     }}
   ],
   military: [
-    {name:'饱和打击', weight:3, cooldown:5, fn(e){ // 从屏幕边缘大量袭来
-      for(let i=0;i<6;i++){
+    {name:'饱和打击', weight:3, cooldown:5, fn(e){ // 从屏幕边缘 4×2发(原6×3)
+      for(let i=0;i<4;i++){
         const side=i%2===0?0:W;
-        for(let j=0;j<3;j++){
-          enemyBullets.push({x:side,y:Math.random()*H*.4,vx:side===0?250:-250,vy:Math.random()*60-30,life:3,alive:true,bulletType:'fast'});
+        for(let j=0;j<2;j++){
+          enemyBullets.push({x:side,y:Math.random()*H*.4,vx:side===0?250:-250,vy:Math.random()*60-30,life:2.5,alive:true,bulletType:'fast'});
         }
       }
     }},
-    {name:'轨道炮', weight:2, cooldown:7, fn(e){ // 3发高速追踪弹
-      for(let i=0;i<3;i++){
+    {name:'轨道炮', weight:2, cooldown:7, fn(e){ // 2发高速追踪弹(原3)
+      for(let i=0;i<2;i++){
         setTimeout(()=>{
           const dx=player.x-e.x,dy=player.y-e.y,dist=Math.sqrt(dx*dx+dy*dy)||1;
-          enemyBullets.push({x:e.x,y:e.y,vx:dx/dist*500,vy:dy/dist*500,life:2,alive:true,bulletType:'laser',isSkill:true});
-        },i*200);
+          enemyBullets.push({x:e.x,y:e.y,vx:dx/dist*500,vy:dy/dist*500,life:1.8,alive:true,bulletType:'laser',isSkill:true});
+        },i*250);
       }
     }},
-    {name:'火力覆盖', weight:4, cooldown:3.5, fn(e){ // 左右交替扫射
-      for(let i=0;i<12;i++){
-        const a=-0.5+i*0.09;
-        enemyBullets.push({x:e.x,y:e.y+10,vx:Math.sin(a)*240,vy:180+Math.cos(a)*60,life:3,alive:true,bulletType:'normal'});
+    {name:'火力覆盖', weight:4, cooldown:3.5, fn(e){ // 左右交替扫射 8发(原12)
+      for(let i=0;i<8;i++){
+        const a=-0.4+i*0.11;
+        enemyBullets.push({x:e.x,y:e.y+10,vx:Math.sin(a)*240,vy:180+Math.cos(a)*60,life:2.5,alive:true,bulletType:'normal'});
       }
     }}
   ],
   alien: [
-    {name:'分裂繁殖', weight:3, cooldown:6, fn(e){ // 放出3个分裂弹
-      for(let i=-1;i<=1;i++){
-        enemyBullets.push({x:e.x+i*20,y:e.y+10,vx:i*70,vy:140,life:1.2,alive:true,willSplit:true,bulletType:'explosive'});
+    {name:'分裂繁殖', weight:3, cooldown:6, fn(e){ // 放出2个分裂弹(原3)
+      for(let i=-1;i<=1;i+=2){
+        enemyBullets.push({x:e.x+i*25,y:e.y+10,vx:i*70,vy:140,life:1,alive:true,willSplit:true,bulletType:'explosive'});
       }
     }},
     {name:'心灵震爆', weight:2, cooldown:7, fn(e){ // 全屏子弹短暂减速+变色
       for(let i=enemyBullets.length-1;i>=0;i--){
         const b=enemyBullets[i];
-        if(!b.isSkill&&Math.random()<.3){b.vx*=.35;b.vy*=.35;b.life+=1;b.bulletType='wave';}
+        if(!b.isSkill&&Math.random()<.25){b.vx*=.35;b.vy*=.35;b.life+=.8;b.bulletType='wave';}
       }
     }},
-    {name:'波形共振', weight:3, cooldown:4.5, fn(e){ // 3层波形弹幕
-      for(let layer=0;layer<3;layer++){
+    {name:'波形共振', weight:3, cooldown:5, fn(e){ // 2层波形弹幕(原3)
+      for(let layer=0;layer<2;layer++){
         setTimeout(()=>{
-          for(let i=0;i<8;i++){
-            const a=i*Math.PI*2/8+layer*0.4;
-            enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*160,vy:Math.sin(a)*120+100,life:3.5,alive:true,bulletType:'wave',wavePhase:layer*1.2});
+          for(let i=0;i<6;i++){
+            const a=i*Math.PI*2/6+layer*0.5;
+            enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*160,vy:Math.sin(a)*120+100,life:3,alive:true,bulletType:'wave',wavePhase:layer*1.2});
           }
-        },layer*150);
+        },layer*180);
       }
     }}
   ],
   cosmic: [
-    {name:'引力奇点', weight:3, cooldown:5, fn(e){ // 在随机位置创建引力点，子弹围绕它
+    {name:'引力奇点', weight:3, cooldown:5, fn(e){ // 引力弹 10发+每2帧引力(原16发)
       const gx=W*.2+Math.random()*W*.6, gy=H*.1+Math.random()*H*.3;
-      for(let i=0;i<16;i++){
-        const a=i*Math.PI*2/16;
-        enemyBullets.push({x:e.x+Math.cos(a)*50,y:e.y+Math.sin(a)*50,vx:Math.cos(a)*60,vy:Math.sin(a)*60,life:3,alive:true,bulletType:'orb',gravityTarget:{x:gx,y:gy,strength:240}});
+      for(let i=0;i<10;i++){
+        const a=i*Math.PI*2/10;
+        enemyBullets.push({x:e.x+Math.cos(a)*50,y:e.y+Math.sin(a)*50,vx:Math.cos(a)*60,vy:Math.sin(a)*60,life:2.5,alive:true,bulletType:'orb',gravityTarget:{x:gx,y:gy,strength:240}});
       }
     }},
     {name:'黑洞吞噬', weight:2, cooldown:8, fn(e){ // 吸收玩家子弹
@@ -586,11 +586,11 @@ const BOSS_SKILLS = {
         }
       }
     }},
-    {name:'时空扭曲', weight:2, cooldown:6, fn(e){ // 短暂反转玩家方向感知
-      player.confused=2.5; // 混淆时间
-      for(let i=0;i<12;i++){
-        const a=i*Math.PI*2/12;
-        enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*140,vy:Math.sin(a)*140,life:3,alive:true,bulletType:'fast'});
+    {name:'时空扭曲', weight:2, cooldown:6, fn(e){ // 混淆+8发弹(原12)
+      player.confused=2.5;
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI*2/8;
+        enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*140,vy:Math.sin(a)*140,life:2.5,alive:true,bulletType:'fast'});
       }
     }}
   ],
@@ -599,27 +599,26 @@ const BOSS_SKILLS = {
       e.invulnerable=2.5;
       spawnParticles(e.x,e.y,20,'#a4f',100,.5,3);
     }},
-    {name:'虚空裂隙', weight:4, cooldown:4, fn(e){ // 在屏幕随机位置生成弹幕源
-      for(let i=0;i<3;i++){
+    {name:'虚空裂隙', weight:4, cooldown:4.5, fn(e){ // 2个裂隙各5发(原3×6)
+      for(let i=0;i<2;i++){
         const sx=W*.1+Math.random()*W*.8, sy=H*.05+Math.random()*H*.25;
-        for(let j=0;j<6;j++){
-          const a=j*Math.PI/3;
-          enemyBullets.push({x:sx,y:sy,vx:Math.cos(a)*100,vy:Math.sin(a)*60+80,life:3.5,alive:true,bulletType:'wave'});
+        for(let j=0;j<5;j++){
+          const a=j*Math.PI*2.5;
+          enemyBullets.push({x:sx,y:sy,vx:Math.cos(a)*100,vy:Math.sin(a)*60+80,life:3,alive:true,bulletType:'wave'});
         }
       }
     }},
-    {name:'终焉审判', weight:3, cooldown:6, fn(e){ // 全方向弹幕+追踪弹混合
-      for(let i=0;i<20;i++){
-        const a=i*Math.PI*2/20;
-        enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*180,vy:Math.sin(a)*180,life:4,alive:true,bulletType:'normal'});
+    {name:'终焉审判', weight:3, cooldown:6, fn(e){ // 全方向弹幕 12+3发(原20+5)
+      for(let i=0;i<12;i++){
+        const a=i*Math.PI*2/12;
+        enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*180,vy:Math.sin(a)*180,life:3.5,alive:true,bulletType:'normal'});
       }
-      // 追踪弹
       const dx=player.x-e.x,dy=player.y-e.y,dist=Math.sqrt(dx*dx+dy*dy)||1;
-      for(let i=0;i<5;i++){
-        const a=(i-2)*.2;
+      for(let i=0;i<3;i++){
+        const a=(i-1)*.25;
         const cx=dx/dist*Math.cos(a)-dy/dist*Math.sin(a);
         const cy=dx/dist*Math.sin(a)+dy/dist*Math.cos(a);
-        enemyBullets.push({x:e.x,y:e.y,vx:cx*300,vy:cy*300,life:3,alive:true,bulletType:'homing'});
+        enemyBullets.push({x:e.x,y:e.y,vx:cx*300,vy:cy*300,life:2.5,alive:true,bulletType:'homing'});
       }
     }}
   ]
@@ -1665,19 +1664,18 @@ function createItem(x,y,type,weaponSub){return {x,y,type,weaponSub,vy:80,lived:0
 const ITEM_COLORS={weapon:'#0ff',bomb:'#ff0',star:'#ff0',shield:'#0f0',coin:'#FD0',health:'#f0f',drone:'#4af',evolve:'#f0f'};
 
 function drawItem(it){
-  ctx.save();ctx.translate(it.x,it.y+(it.collecting?0:it.yoy));
+  const iy=it.y+(it.collecting?0:it.yoy);
   if(!it.collecting) it.yoy=Math.sin(it.lived*4)*3;
   const c=it.type==='weapon'&&it.weaponSub&&WEAPON_TYPES[it.weaponSub]?WEAPON_TYPES[it.weaponSub].color:(ITEM_COLORS[it.type]||'#fff');
-  const glow=ctx.createRadialGradient(0,0,3,0,0,14);
-  glow.addColorStop(0,'rgba(255,255,255,0.8)');glow.addColorStop(.4,c);glow.addColorStop(1,'rgba(0,0,0,0)');
-  ctx.fillStyle=glow;ctx.beginPath();ctx.arc(0,0,14,0,Math.PI*2);ctx.fill();
+  // v6.2: 绝对坐标渲染，移除save/restore/translate+createRadialGradient
+  ctx.fillStyle='rgba(255,255,255,0.3)';ctx.beginPath();ctx.arc(it.x,iy,14,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=c;ctx.globalAlpha=0.4;ctx.beginPath();ctx.arc(it.x,iy,9,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
   ctx.fillStyle='#fff';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
   const wpIcon=it.type==='weapon'&&it.weaponSub&&WEAPON_TYPES[it.weaponSub]?WEAPON_TYPES[it.weaponSub].icon:'';
   const icons={weapon:(wpIcon||'🔷'),bomb:'💣',star:'⭐',shield:'🛡️',coin:'🪙',health:'❤️',drone:'🛸',evolve:'🧬'};
-  ctx.fillText(icons[it.type]||'?',0,0);
-  ctx.beginPath();ctx.arc(0,0,18,0,Math.PI*2);ctx.setLineDash([4,4]);ctx.lineDashOffset=it.lived*50;
+  ctx.fillText(icons[it.type]||'?',it.x,iy);
+  ctx.beginPath();ctx.arc(it.x,iy,18,0,Math.PI*2);ctx.setLineDash([4,4]);ctx.lineDashOffset=it.lived*50;
   ctx.strokeStyle=c;ctx.lineWidth=1.5;ctx.stroke();ctx.setLineDash([]);
-  ctx.restore();
 }
 
 // ==================== 星风暴 (擦弹必杀) ====================
@@ -2332,16 +2330,14 @@ function update(now){
       b.vx=b._cosA*b._waveBaseSpd+b._cosPerpA*offset;
       b.vy=b._sinA*b._waveBaseSpd+b._sinPerpA*offset;
     }
-    // 引力弹（orb类且带gravityTarget）— 仅在远离引力中心时施力，防止打转积累
-    if(b.gravityTarget&&b.life>0.5){
+    // 引力弹（orb类且带gravityTarget）— 每2帧算一次，大幅降低sqrt次数
+    if(b.gravityTarget&&b.life>0.5&&(frameCount&1)===0){
       const gx=b.gravityTarget.x,gy=b.gravityTarget.y;
       const gdx=gx-b.x,gdy=gy-b.y,gdist=Math.sqrt(gdx*gdx+gdy*gdy)||1;
-      // 引力只在距中心50-280px范围内生效，太近时反向推开，防止聚集打转
       if(gdist<280){
-        const strength=gdist<60?-200:b.gravityTarget.strength*0.8; // 太近时反推
-        b.vx+=(gdx/gdist)*strength*dt;
-        b.vy+=(gdy/gdist)*strength*dt;
-        // 限制最大速度防止失控加速
+        const strength=gdist<60?-200:b.gravityTarget.strength*0.8;
+        b.vx+=(gdx/gdist)*strength*dt*2; // ×2补偿隔帧计算
+        b.vy+=(gdy/gdist)*strength*dt*2;
         const maxSpd=350;const curSpd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
         if(curSpd>maxSpd){b.vx=b.vx/curSpd*maxSpd;b.vy=b.vy/curSpd*maxSpd;}
       }
@@ -2542,7 +2538,7 @@ function update(now){
     if(e.telegraphTimer>0) e.telegraphTimer-=dt;
     if(e.invulnerable>0) e.invulnerable-=dt;
     // Boss战硬封顶：超过120颗敌弹时暂停发射+技能
-    const ebHardCap=bossFight?120:(_adaptMaxEB*.9);
+    const ebHardCap=bossFight?90:(_adaptMaxEB*.85);
     if(e.shootCooldown<=0&&e.y>10&&e.y<H*.7){
       if(enemyBullets.length<ebHardCap) enemyShoot(e);
       e.shootCooldown=e.shootTimer*(.8+Math.random()*.4)*diffCfg.shootRateMult;
@@ -2875,17 +2871,17 @@ function draw(offset){
     ctx.fillStyle='#ff0';ctx.fillRect(hudX+4+i*10,150,8,14);
     ctx.strokeStyle='#880';ctx.lineWidth=.5;ctx.strokeRect(hudX+4+i*10,150,8,14);
   }
-  // 玩家HP条
-  const hpBarW=90,hpBarH=8,hpy=176;
-  ctx.fillStyle='#0cf';ctx.font='bold 11px sans-serif';ctx.fillText('HP '+player.hp+'/'+player.maxHp,hudX+4,hpy-2);
-  ctx.fillStyle='rgba(40,0,0,0.6)';ctx.fillRect(hudX+4,hpy,hpBarW,hpBarH);
+  // 玩家HP条 — v6.2: 加大加亮
+  const hpBarW=90,hpBarH=12,hpy=174;
+  ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.fillText('❤️ HP '+player.hp+'/'+player.maxHp,hudX+4,hpy-2);
+  ctx.fillStyle='rgba(40,0,0,0.7)';ctx.fillRect(hudX+4,hpy+2,hpBarW,hpBarH);
   const hpPct=player.hp/player.maxHp;
-  const hpGrad=ctx.createLinearGradient(hudX+4,0,hudX+4+hpBarW,0);
-  hpGrad.addColorStop(0,'#f44');hpGrad.addColorStop(.5,'#f66');hpGrad.addColorStop(1,'#f44');
-  ctx.fillStyle=hpPct>.35?hpGrad:'#f00';
-  if(hpPct<=.25&&Math.sin(frameCount*.3)>0) ctx.fillStyle='#ff0'; // 低血量闪烁
-  ctx.fillRect(hudX+4,hpy,hpBarW*hpPct,hpBarH);
-  ctx.strokeStyle='rgba(255,80,80,0.5)';ctx.lineWidth=1;ctx.strokeRect(hudX+4,hpy,hpBarW,hpBarH);
+  ctx.fillStyle=hpPct>.5?'#f44':(hpPct>.25?'#f80':'#f00');
+  if(hpPct<=.25&&Math.sin(frameCount*.5)>0) ctx.fillStyle='#ff0'; // 低血量闪烁
+  ctx.fillRect(hudX+4,hpy+2,hpBarW*hpPct,hpBarH);
+  // 血量分格线
+  for(let i=1;i<player.maxHp;i++){ctx.strokeStyle='rgba(0,0,0,0.3)';ctx.lineWidth=.5;ctx.beginPath();ctx.moveTo(hudX+4+i*(hpBarW/player.maxHp),hpy+2);ctx.lineTo(hudX+4+i*(hpBarW/player.maxHp),hpy+2+hpBarH);ctx.stroke();}
+  ctx.strokeStyle='rgba(255,100,100,0.6)';ctx.lineWidth=1.5;ctx.strokeRect(hudX+4,hpy+2,hpBarW,hpBarH);
   // 星风暴能量槽（下移）
   ctx.fillStyle='#0cf';ctx.font='bold 11px sans-serif';ctx.fillText('STORRM',hudX+4,204);
   ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(hudX+4,208,90,8);
