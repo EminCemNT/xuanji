@@ -275,6 +275,16 @@ canvas{display:block;width:100%;height:100%;}
   <div class="tut-arrow">🌌</div>
 </div>
 
+<!-- 武器升级选择面板 (v6.5.2: 之前漏了这个DOM元素导致卡死！) -->
+<div id="weapon-upgrade">
+  <div class="wu-panel">
+    <div class="wu-title">⚡ 武器升级</div>
+    <div class="wu-sub">选择一项强化（3选1）</div>
+    <div class="wu-options" id="wu-options"></div>
+    <div class="wu-footer">点击选择 · 游戏将自动继续</div>
+  </div>
+</div>
+
 <!-- 音效开关 -->
 <button id="btn-sfx" onclick="toggleSfx()" title="音效/BGM">🔊</button>
 
@@ -2997,9 +3007,13 @@ function update(now){
             // 阶段提示
             const phaseTexts=['','','⚠️ 第二阶段！','⚠️ 第三阶段！','💀 终焉阶段！'];
             addScorePopup(e.x,e.y-60,phaseTexts[e.phase]||'阶段转换！',e.phase>=2?'#f44':'#ff0',18);
-            // 改变颜色（根据阶段）
-            if(e.phase>=1) e.strokeColor=`hsl(${e.phase*60}, 100%, 60%)`;
-            if(e.phase>=2) e.bodyColor=`hsl(${e.phase*60}, 80%, 20%)`;
+            // 改变颜色（根据阶段）— v6.5.2: 用hex而非hsl，parseColor不支持hsl
+            const phaseColors=[
+              ['#f44','#a00'],['#f80','#a40'],['#f0f','#606'],['#0ff','#066']
+            ];
+            const pc=phaseColors[e.phase]||phaseColors[0];
+            e.strokeColor=pc[0];
+            e.bodyColor=pc[1];
             console.log(`[Boss Phase] ${e.name||'?'} → Phase ${ph}, HP: ${Math.round(hpRatio*100)}%`);
             break;
           }
@@ -3690,57 +3704,92 @@ const WEAPON_UPGRADE_OPTIONS=[
 
 function showWeaponUpgrade(){
   if(weaponUpgradeActive) return;
+  
+  // v6.5.2: 先检查DOM元素是否存在，不存在则直接升级武器不弹面板
+  const panel=document.getElementById('weapon-upgrade');
+  const optionsEl=document.getElementById('wu-options');
+  if(!panel||!optionsEl){
+    console.warn('[WeaponUpgrade] DOM元素不存在，直接升级武器');
+    // fallback: 直接升级武器等级
+    const wt=WEAPON_TYPES[weaponType];
+    if(wt&&weaponLevel<wt.levels.length){
+      weaponLevel++;
+      addScorePopup(player.x,player.y-20,'⬆️ '+wt.name+' LV'+weaponLevel,wt.color,18);
+    }else{
+      bombCount=Math.min(9,bombCount+1);
+      addScorePopup(player.x,player.y-20,'💣 炸弹+1','#f80',18);
+    }
+    return; // 不暂停游戏，不设置weaponUpgradeActive
+  }
+  
   weaponUpgradeActive=true;
   gameRunning=false; // 暂停游戏
   
-  const panel=document.getElementById('weapon-upgrade');
-  const optionsEl=document.getElementById('wu-options');
-  optionsEl.innerHTML='';
-  
-  // 随机生成3个选项（最多尝试20次避免死循环）
-  const options=[];
-  const usedTypes=new Set();
-  let attempts=0;
-  while(options.length<3&&attempts<20&&options.length<WEAPON_UPGRADE_OPTIONS.length){
-    const totalW=WEAPON_UPGRADE_OPTIONS.reduce((s,o)=>s+o.weight,0);
-    let r=Math.random()*totalW,wAcc=0,picked=null;
-    for(let i=0;i<WEAPON_UPGRADE_OPTIONS.length;i++){
-      wAcc+=WEAPON_UPGRADE_OPTIONS[i].weight;
-      if(r<=wAcc&&!usedTypes.has(WEAPON_UPGRADE_OPTIONS[i].type)){
-        picked=WEAPON_UPGRADE_OPTIONS[i];
-        break;
+  try{
+    optionsEl.innerHTML='';
+    
+    // 随机生成3个选项（最多尝试20次避免死循环）
+    const options=[];
+    const usedTypes=new Set();
+    let attempts=0;
+    while(options.length<3&&attempts<20&&options.length<WEAPON_UPGRADE_OPTIONS.length){
+      const totalW=WEAPON_UPGRADE_OPTIONS.reduce((s,o)=>s+o.weight,0);
+      let r=Math.random()*totalW,wAcc=0,picked=null;
+      for(let i=0;i<WEAPON_UPGRADE_OPTIONS.length;i++){
+        wAcc+=WEAPON_UPGRADE_OPTIONS[i].weight;
+        if(r<=wAcc&&!usedTypes.has(WEAPON_UPGRADE_OPTIONS[i].type)){
+          picked=WEAPON_UPGRADE_OPTIONS[i];
+          break;
+        }
       }
+      if(!picked) picked=WEAPON_UPGRADE_OPTIONS[Math.floor(Math.random()*WEAPON_UPGRADE_OPTIONS.length)];
+      const cfg=picked.getCfg();
+      if(cfg){
+        options.push(cfg);
+        usedTypes.add(picked.type);
+      }
+      attempts++;
     }
-    if(!picked) picked=WEAPON_UPGRADE_OPTIONS[Math.floor(Math.random()*WEAPON_UPGRADE_OPTIONS.length)];
-    const cfg=picked.getCfg();
-    if(cfg){
-      options.push(cfg);
-      usedTypes.add(picked.type);
-    }
-    attempts++;
-  }
-  
-  // 渲染选项
-  options.forEach(opt=>{
-    const div=document.createElement('div');
-    div.className='wu-option';
-    div.innerHTML=`
-      <div class="wo-icon">${opt.icon}</div>
-      <div class="wo-content">
-        <div class="wo-name">${opt.name}</div>
-        <div class="wo-desc">${opt.desc}</div>
-      </div>
-    `;
-    div.onclick=()=>{
-      opt.action();
-      panel.style.display='none';
+    
+    // v6.5.2: 如果没有生成任何选项，fallback直接升级
+    if(options.length===0){
+      console.warn('[WeaponUpgrade] 无可用选项，直接升级');
+      const wt=WEAPON_TYPES[weaponType];
+      if(wt&&weaponLevel<wt.levels.length) weaponLevel++;
+      else bombCount=Math.min(9,bombCount+1);
       weaponUpgradeActive=false;
-      gameRunning=true; // 继续游戏
-    };
-    optionsEl.appendChild(div);
-  });
-  
-  panel.style.display='flex';
+      gameRunning=true;
+      return;
+    }
+    
+    // 渲染选项
+    options.forEach(opt=>{
+      const div=document.createElement('div');
+      div.className='wu-option';
+      div.innerHTML=`
+        <div class="wo-icon">${opt.icon}</div>
+        <div class="wo-content">
+          <div class="wo-name">${opt.name}</div>
+          <div class="wo-desc">${opt.desc}</div>
+        </div>
+      `;
+      div.onclick=()=>{
+        try{opt.action();}catch(e){console.error('[WeaponUpgrade] action出错:',e);}
+        panel.style.display='none';
+        weaponUpgradeActive=false;
+        gameRunning=true; // 继续游戏
+      };
+      optionsEl.appendChild(div);
+    });
+    
+    panel.style.display='flex';
+  }catch(e){
+    // v6.5.2: 任何出错都恢复游戏运行，绝不卡死
+    console.error('[WeaponUpgrade] 渲染出错:',e);
+    weaponUpgradeActive=false;
+    gameRunning=true;
+    if(panel) panel.style.display='none';
+  }
 }
 
 </script>
