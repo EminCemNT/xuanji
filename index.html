@@ -2326,6 +2326,10 @@ function showAchievement(){
 let deathSlowMo=0, deathTimer=0;
 function gameOver(cause){
   gameRunning=false;player.alive=false;
+  // v6.5.2: 关闭武器升级面板，防止状态残留
+  weaponUpgradeActive=false;
+  const wuPanel=document.getElementById('weapon-upgrade');
+  if(wuPanel) wuPanel.style.display='none';
   spawnParticles(player.x,player.y,60,'#fff',200,1,4);
   spawnParticles(player.x,player.y,40,'#f84',150,.8,3);
   spawnParticles(player.x,player.y,20,SKINS[currentSkin].color,180,1.2,4);
@@ -3577,7 +3581,13 @@ function startGame(){
   _delayedBullets=[];_delayedWaves=[]; // v6.5.2: 重置延迟队列
   _fpsSamples=[];_adaptMaxEB=200;_adaptMaxP=300; // v6.0: 每局重置FPS自适应
   scorePopups=[];
+  // v6.5.2: 重置遗漏的状态变量
+  bossKills=0;grazeCount=0;starStormGauge=0;starStormActive=false;starStormTimer=0;
+  drones=[];weaponUpgradeActive=false;
+  const wuPanel=document.getElementById('weapon-upgrade');
+  if(wuPanel) wuPanel.style.display='none'; // 确保面板隐藏
   bossKillAnnounce={active:false,timer:0,text:''};
+  bossIntroAnnounce={active:false,timer:0,text:'',bossName:''}; // v6.5.2: 重置Boss出场通告
   score=0;heightM=0;combo=0;maxCombo=0;kills=0;
   screenShakeTrauma=0;hitStop=0;damageVignette=0;
   feverGauge=0;feverActive=false;feverTimer=0;feverCount=0;
@@ -3615,6 +3625,9 @@ function closeTutorial(){
 
 function backToMenu(){
   gameRunning=false;deathSlowMo=0;
+  weaponUpgradeActive=false; // v6.5.2: 重置武器升级状态
+  const wuPanel=document.getElementById('weapon-upgrade');
+  if(wuPanel) wuPanel.style.display='none'; // v6.5.2: 隐藏武器升级面板
   document.getElementById('gameover').style.display='none';
   document.getElementById('menu').style.display='flex';
   refreshMenu();
