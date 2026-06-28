@@ -293,7 +293,8 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v6.5.2';
+const GAME_VERSION = 'v6.5.3';
+// v6.5.3: 终极卡死修复 — 全局看门狗(5秒自动恢复)+Boss阶段转换极简化+gameRunning=false移入try+删除最后setTimeout
 // v6.5.2: 彻底修复Boss阶段卡死 - try-catch保护 + 清理残留setTimeout + 阶段转换时清理过量粒子
 // + P1: Boss阶段化系统 — 血量75%/50%/25%时自动变相（攻击模式+颜色+护盾）
 // + P2: 武器升级选择界面 — 收集武器道具时弹出3选1 Roguelite界面
@@ -1322,6 +1323,11 @@ function toggleSfx(){
 let player,enemies,playerBullets,enemyBullets,items,particles;
 let score=0, heightM=0, combo=0, maxCombo=0, kills=0;
 let screenShakeTrauma=0, hitStop=0, damageVignette=0;
+// v6.5.3: 全局看门狗 — 检测游戏是否异常冻结
+let _watchdogTimer=0; // 连续无更新帧数（每帧递增，update正常执行时归零）
+const WATCHDOG_MAX=300; // 约5秒@60fps，超限自动恢复
+// v6.5.3: Boss出场剧情延迟队列（替代setTimeout）
+let _bossStoryQueue=null;
 // v6.5.2: 帧级延迟队列（替代setTimeout，避免iframe中不可靠）
 let _delayedBullets=[], _delayedWaves=[];
 let feverGauge=0, feverActive=false, feverTimer=0, feverCount=0;
@@ -2985,46 +2991,31 @@ function update(now){
     if(e.telegraphTimer>0) e.telegraphTimer-=dt;
     if(e.invulnerable>0) e.invulnerable-=dt;
     
-    // Boss阶段转换检测（v6.5.2: try-catch保护防止静默卡死）
+    // Boss阶段转换检测（v6.5.3: 极简版，只做最必要的操作）
     if(e.type==='boss'&&!e._phaseChanging){
       try{
         const hpRatio=e.hp/e.maxHp;
-        // 检查是否需要进入下一阶段
         for(let ph=3;ph>=1;ph--){
           if(e.phase<ph&&hpRatio<=e.phaseThresholds[ph-1]){
             e.phase=ph;
             e._phaseChanging=true;
-            e._phaseChangeTimer=2; // 用帧计时器代替setTimeout（2秒）
-            // 阶段转换效果
-            e.invulnerable=2; // 2秒无敌
-            screenShakeTrauma=Math.min(1, screenShakeTrauma+.5);
-            hitStop=0.15;
-            damageVignette=Math.min(1, damageVignette+.4);
-            // v6.5.2: 阶段转换时清理过量粒子/弹幕，防止性能雪崩
-            if(particles.length>_adaptMaxP*.5){particles.splice(0,Math.floor(particles.length*.3));}
-            const phaseCleanCap=bossFight?90:(_adaptMaxEB*.85);
-            if(enemyBullets.length>phaseCleanCap*.6){
-              enemyBullets.splice(0,Math.floor(enemyBullets.length*.2));
-            }
-            // 粒子爆炸效果（减量到25颗，原40颗）
-            spawnParticles(e.x,e.y,25,e.phase>=2?'#f00':'#ff0',120,.5,3);
-            // 阶段提示
-            const phaseTexts=['','','⚠️ 第二阶段！','⚠️ 第三阶段！','💀 终焉阶段！'];
-            addScorePopup(e.x,e.y-60,phaseTexts[e.phase]||'阶段转换！',e.phase>=2?'#f44':'#ff0',18);
-            // 改变颜色（根据阶段）— v6.5.2: 用hex而非hsl，parseColor不支持hsl
-            const phaseColors=[
-              ['#f44','#a00'],['#f80','#a40'],['#f0f','#606'],['#0ff','#066']
-            ];
-            const pc=phaseColors[e.phase]||phaseColors[0];
-            e.strokeColor=pc[0];
-            e.bodyColor=pc[1];
-            console.log(`[Boss Phase] ${e.name||'?'} → Phase ${ph}, HP: ${Math.round(hpRatio*100)}%`);
+            e._phaseChangeTimer=1.5; // 1.5秒无敌时间
+            e.invulnerable=1.5;
+            // 阶段颜色（用最安全的方式）
+            const phaseColors=['#f44','#f80','#f0f','#0ff'];
+            e.strokeColor=phaseColors[ph]||'#f44';
+            // 最少量粒子
+            try{spawnParticles(e.x,e.y,12,'#ff0',80,.4,2);}catch(_){}
+            try{addScorePopup(e.x,e.y-50,`⚡ Phase ${ph}!`,'#ff0',16);}catch(_){}
+            console.log(`[Boss] → Phase ${ph}, HP:${Math.round(hpRatio*100)}%`);
             break;
           }
         }
       }catch(err){
-        console.error('[Boss Phase] 阶段转换出错:',err);
-        e._phaseChanging=false; // 出错立即解除锁定，防止永久卡死
+        console.error('[Boss Phase Error]',err);
+        e._phaseChanging=false;
+        // 确保游戏不会因为这个卡死
+        if(!gameRunning){gameRunning=true;weaponUpgradeActive=false;}
       }
     }
     // 阶段转换计时器递减（替代setTimeout）
@@ -3123,18 +3114,8 @@ function update(now){
       `${zoneName}守卫者 — ${boss.name} 登场！`,
     ][Math.floor(Math.random()*3)];
     bossIntroAnnounce={active:true,timer:2.5,text:introQuotes,bossName:boss.name};
-    // Boss战前剧情 — 按区域选择专属台词
-    setTimeout(()=>{
-      const theme=zone.theme;
-      const prePool=STORY_DATA.bossPreByTheme[theme];
-      if(prePool&&prePool.length>0){
-        const picked=prePool[Math.floor(Math.random()*prePool.length)];
-        queueStory(picked.lines||picked);
-      } else {
-        const msg=[{speaker:'任务指挥中心',text:`${zoneName}区域 — Boss单位${boss.name}出现！`,delay:0}];
-        queueStory(msg);
-      }
-    },500);
+    // Boss战前剧情 — 用帧计时器延迟1.5秒（约90帧）替代setTimeout
+    _bossStoryQueue={frame: frameCount+90, zone: zone, boss: boss};
     // Boss间隔：固定值，不随速度膨胀
     nextBossAt+=diffCfg.bossInterval+Math.random()*(diffCfg.bossInterval*.3);
     waveTimer=2;
@@ -3170,6 +3151,22 @@ function update(now){
     const types=Object.keys(WEAPON_TYPES).filter(t=>t!==weaponType);
     const newType=types[Math.floor(Math.random()*types.length)];
     items.push(createItem(Math.random()*W,-20,'weapon',newType));
+  }
+  
+  // v6.5.3: Boss出场剧情延迟队列处理（替代setTimeout）
+  if(_bossStoryQueue&&frameCount>=_bossStoryQueue.frame){
+    try{
+      const bs=_bossStoryQueue;
+      const theme=bs.zone.theme;
+      const prePool=STORY_DATA.bossPreByTheme[theme];
+      if(prePool&&prePool.length>0){
+        const picked=prePool[Math.floor(Math.random()*prePool.length)];
+        queueStory(picked.lines||picked);
+      } else {
+        queueStory([{speaker:'任务指挥中心',text:`${bs.zone.name}区域 — Boss单位${bs.boss.name}出现！`,delay:0}]);
+      }
+    }catch(e){console.warn('[BossStory] 剧情播放出错:',e);}
+    _bossStoryQueue=null;
   }
 }
 
@@ -3502,10 +3499,28 @@ function draw(offset){
 function gameLoop(now){
   try {
     if(!lastTime) lastTime=now;
-    if(gameRunning||deathSlowMo>0) update(now);
+    if(gameRunning||deathSlowMo>0) {
+      update(now);
+      _watchdogTimer=0; // update正常执行，看门狗归零
+    } else {
+      // v6.5.3: gameRunning=false时递增看门狗
+      _watchdogTimer++;
+      // 超过阈值且没有可见UI面板 → 自动恢复（防止永久冻结）
+      if(_watchdogTimer>WATCHDOG_MAX && !document.getElementById('gameover')?.style.display?.match(/flex|block/)
+        && !document.getElementById('menu')?.style.display?.match(/flex|block/)
+        && !document.getElementById('weapon-upgrade')?.style.display?.match(/flex|block/)){
+        console.warn('[Watchdog] 检测到异常冻结，自动恢复游戏！');
+        gameRunning=true;
+        weaponUpgradeActive=false;
+        _watchdogTimer=0;
+      }
+    }
     draw(heightM);
   } catch(e) {
     console.error('Game loop error:', e);
+    // v6.5.3: 严重错误时尝试恢复，不要让游戏静默死亡
+    if(!gameRunning && !player.alive) return; // 正常gameOver状态
+    if(!gameRunning) { console.warn('[GameLoop] 错误导致暂停，自动恢复'); gameRunning=true; weaponUpgradeActive=false; }
   }
   requestAnimationFrame(gameLoop);
 }
@@ -3579,6 +3594,8 @@ function startGame(){
   player.hp=diffCfg.hp;player.maxHp=diffCfg.hp;
   enemies=[];playerBullets=[];enemyBullets=[];items=[];particles=[];
   _delayedBullets=[];_delayedWaves=[]; // v6.5.2: 重置延迟队列
+  _bossStoryQueue=null; // v6.5.3: 重置Boss剧情队列
+  _watchdogTimer=0; // v6.5.3: 重置看门狗
   _fpsSamples=[];_adaptMaxEB=200;_adaptMaxP=300; // v6.0: 每局重置FPS自适应
   scorePopups=[];
   // v6.5.2: 重置遗漏的状态变量
@@ -3736,9 +3753,10 @@ function showWeaponUpgrade(){
   }
   
   weaponUpgradeActive=true;
-  gameRunning=false; // 暂停游戏
+  // v6.5.3: gameRunning=false 移入try内部，确保任何异常都不会导致永久暂停
   
   try{
+    gameRunning=false; // 暂停游戏（在try内部，异常时catch能恢复）
     optionsEl.innerHTML='';
     
     // 随机生成3个选项（最多尝试20次避免死循环）
@@ -3797,11 +3815,11 @@ function showWeaponUpgrade(){
     
     panel.style.display='flex';
   }catch(e){
-    // v6.5.2: 任何出错都恢复游戏运行，绝不卡死
+    // v6.5.3: 任何出错都恢复游戏运行，绝不卡死
     console.error('[WeaponUpgrade] 渲染出错:',e);
     weaponUpgradeActive=false;
     gameRunning=true;
-    if(panel) panel.style.display='none';
+    try{if(panel)panel.style.display='none';}catch(_){}
   }
 }
 
