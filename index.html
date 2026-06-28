@@ -263,7 +263,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v6.3';
+const GAME_VERSION = 'v6.4';
 const BUILD_DATE = '2026-06-28';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -974,7 +974,8 @@ function checkStoryTrigger(heightM){
   }
 }
 function addScorePopup(x,y,text,color='#fff',size=16){
-  scorePopups.push({x,y,text,color,size,life:0.8,opacity:1,vy:-60});
+  // v6.4: 预计算rgba字符串，避免每帧parseColor
+  scorePopups.push({x,y,text,color,size,life:0.8,opacity:1,vy:-60,_rgba:'rgba('+parseColor(color)+',)'});
 }
 
 // ==================== 音效系统 (Web Audio API) ====================
@@ -1610,52 +1611,109 @@ function drawEnemyBullet(b){
   // 性能降级：子弹数量多时只画普通形式
   const lowDetail=enemyBullets.length>_adaptMaxEB*.75;
   const bx=b.x,by=b.y;
-  /*v6.0: 绝对坐标渲染，去掉save/restore/translate — 最大性能瓶颈*/
+  /* v6.4: 绝对坐标 + 独特几何形状 — 每种弹幕类型一眼可辨 */
+
   if(bt==='laser'){
-    ctx.strokeStyle=cfg.color;ctx.lineWidth=cfg.size;
-    ctx.globalAlpha=0.8;
+    // 高速激光束 — 细长线束 + 白芯
+    ctx.strokeStyle=cfg.color;ctx.lineWidth=cfg.size;ctx.globalAlpha=0.8;
     ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+b.vx*.025,by+b.vy*.025);ctx.stroke();
     ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1;ctx.globalAlpha=0.6;
     ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+b.vx*.015,by+b.vy*.015);ctx.stroke();
     ctx.globalAlpha=1;
+
+  } else if(bt==='fast'){
+    // 快速弹 — 白色菱形 + 长拖尾(运动方向延伸)
+    const spd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
+    const nx=spd>0.1?b.vx/spd:0,ny=spd>0.1?b.vy/spd:0;
+    for(let t=1;t<=3;t++){
+      const tx=bx-nx*t*5,ty=by-ny*t*5;
+      const alpha=1-t*0.28,sz=2+t*0.8;
+      ctx.globalAlpha=alpha;ctx.fillStyle=cfg.glow;
+      ctx.beginPath();ctx.moveTo(tx,ty-sz);ctx.lineTo(tx+sz*0.5,ty);ctx.lineTo(tx,ty+sz);ctx.lineTo(tx-sz*0.5,ty);ctx.closePath();ctx.fill();
+    }
+    ctx.fillStyle='#fff';ctx.globalAlpha=1;
+    ctx.beginPath();ctx.moveTo(bx,by-7);ctx.lineTo(bx+2.5,by);ctx.lineTo(bx,by+7);ctx.lineTo(bx-2.5,by);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#fff';ctx.fillRect(bx-.5,by-5,1,10);
+
   } else if(bt==='wave'){
-    ctx.fillStyle=cfg.glow;ctx.beginPath();ctx.arc(bx,by,cfg.size,0,Math.PI*2);ctx.fill();
+    // 波形弹 — 扁平椭圆 + 正弦摆动偏移（非圆形！）
+    const wt=(b._wt||0)*6;
+    const wobbleX=Math.sin(wt)*2.5,wobbleY=Math.cos(wt*1.3)*1.5;
+    const wx=bx+wobbleX,wy=by+wobbleY;
+    ctx.fillStyle=cfg.glow;ctx.beginPath();
+    ctx.ellipse(wx,wy,cfg.size*1.6,cfg.size*0.7,wt*0.5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=cfg.inner;ctx.beginPath();
+    ctx.ellipse(wx,wy,cfg.size*0.4,cfg.size*0.25,wt*0.5,0,Math.PI*2);ctx.fill();
     if(!lowDetail){
-      ctx.globalAlpha=0.5;ctx.fillStyle=cfg.glow;
-      ctx.beginPath();ctx.arc(bx-b.vx*.01,by-b.vy*.01,cfg.size*.65,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=0.35;ctx.fillStyle=cfg.glow;
+      ctx.beginPath();ctx.ellipse(wx-b.vx*.008,wy-b.vy*.008,cfg.size*1.1,cfg.size*0.5,wt*0.5,0,Math.PI*2);ctx.fill();
       ctx.globalAlpha=1;
     }
-    ctx.fillStyle=cfg.inner;ctx.beginPath();ctx.arc(bx,by,cfg.size*.35,0,Math.PI*2);ctx.fill();
-  } else if(bt==='explosive'){
-    const pulse=lowDetail?1:1+Math.sin(b.life*15)*.25;
-    ctx.fillStyle=cfg.glow;ctx.beginPath();ctx.arc(bx,by,cfg.size*pulse,0,Math.PI*2);ctx.fill();
-    if(!lowDetail){
-      ctx.strokeStyle='#ff0';ctx.lineWidth=1.5;ctx.setLineDash([3,2]);
-      ctx.beginPath();ctx.arc(bx,by,cfg.size*pulse+.5,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
-    }
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,2,0,Math.PI*2);ctx.fill();
-  } else if(bt==='fast'){
-    ctx.fillStyle=cfg.glow;
-    ctx.beginPath();ctx.moveTo(bx,by-7);ctx.lineTo(bx+2,by);ctx.lineTo(bx,by+7);ctx.lineTo(bx-2,by);ctx.closePath();ctx.fill();
-    if(!lowDetail){ctx.fillStyle='#fff';ctx.fillRect(bx-.5,by-5,1,10);}
+
   } else if(bt==='orb'){
-    ctx.fillStyle=cfg.glow;ctx.beginPath();ctx.arc(bx,by,cfg.size,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle=cfg.color;ctx.beginPath();ctx.arc(bx,by,cfg.size*.6,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,0.6)';ctx.beginPath();ctx.arc(bx,by,cfg.size*.2,0,Math.PI*2);ctx.fill();
-    if(!lowDetail){
-      ctx.strokeStyle=cfg.color+'80';ctx.lineWidth=1.5;
-      ctx.beginPath();ctx.arc(bx,by,cfg.size+2,0,Math.PI*2);ctx.stroke();
+    // 能量球 — 六边形外框 + 内旋点（非圆形！）
+    const or=cfg.size,rot=b._rot||0;
+    ctx.strokeStyle=cfg.color;ctx.lineWidth=2;ctx.globalAlpha=0.7;
+    ctx.beginPath();
+    for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6+rot;const px=bx+Math.cos(a)*or,py=by+Math.sin(a)*or;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
+    ctx.closePath();ctx.stroke();
+    ctx.fillStyle=cfg.glow;ctx.globalAlpha=0.35;ctx.fill();ctx.globalAlpha=0.7;
+    const ir=or*0.55;
+    ctx.strokeStyle=cfg.color;ctx.lineWidth=1;ctx.globalAlpha=0.5;
+    ctx.beginPath();
+    for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6-rot*1.5;const px=bx+Math.cos(a)*ir,py=by+Math.sin(a)*ir;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
+    ctx.closePath();ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.7)';ctx.globalAlpha=1;ctx.beginPath();ctx.arc(bx,by,2,0,Math.PI*2);ctx.fill();
+
+  } else if(bt==='explosive'){
+    // 爆炸弹 — 锯齿星形（非圆形！）+ 脉冲
+    const pulse=lowDetail?1:1+Math.sin(b.life*15)*.2;
+    const er=cfg.size*pulse,spikes=6,erot=b._rot||0;
+    ctx.fillStyle=cfg.glow;ctx.beginPath();
+    for(let i=0;i<spikes*2;i++){
+      const r=i%2===0?er:er*0.5;
+      const a=i*Math.PI/spikes-Math.PI/2+erot*0.3;
+      const px=bx+Math.cos(a)*r,py=by+Math.sin(a)*r;
+      if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
     }
+    ctx.closePath();ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,2.2,0,Math.PI*2);ctx.fill();
+    if(!lowDetail){
+      ctx.strokeStyle='#ff0';ctx.lineWidth=1;ctx.setLineDash([2,2]);
+      ctx.beginPath();
+      for(let i=0;i<spikes*2;i++){
+        const r=i%2===0?er+2:er*0.5+2;
+        const a=i*Math.PI/spikes-Math.PI/2+erot*0.3;
+        const px=bx+Math.cos(a)*r,py=by+Math.sin(a)*r;
+        if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+      }
+      ctx.closePath();ctx.stroke();ctx.setLineDash([]);
+    }
+
   } else if(bt==='homing'){
-    ctx.fillStyle=cfg.glow;ctx.beginPath();ctx.arc(bx,by,cfg.size,0,Math.PI*2);ctx.fill();
-    if(!lowDetail){
-      ctx.fillStyle='#ff0';
-      ctx.beginPath();ctx.moveTo(bx,by-cfg.size-2);ctx.lineTo(bx-3,by-cfg.size+2);ctx.lineTo(bx+3,by-cfg.size+2);ctx.closePath();ctx.fill();
+    // 追踪弹 — 三角箭头 + 方向指示（非圆形！）
+    const spd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
+    const hx=spd>0.1?b.vx/spd:0,hy=spd>0.1?b.vy/spd:0;
+    for(let t=1;t<=2;t++){
+      const tx=bx-hx*t*6,ty=by-hy*t*6;
+      const alpha=1-t*0.4,sz=3+t*1.5;
+      ctx.globalAlpha=alpha;ctx.fillStyle=cfg.glow;
+      ctx.beginPath();ctx.moveTo(tx,ty-sz);ctx.lineTo(tx+sz*0.6,ty+sz*0.5);ctx.lineTo(tx-sz*0.6,ty+sz*0.5);ctx.closePath();ctx.fill();
     }
-    ctx.fillStyle=cfg.inner;ctx.beginPath();ctx.arc(bx,by,1.5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=cfg.glow;ctx.globalAlpha=1;
+    ctx.beginPath();
+    ctx.moveTo(bx+hx*7,by+hy*7);
+    ctx.lineTo(bx+hy*4,hx*-4+by-4);
+    ctx.lineTo(bx-hy*4,hx*4+by-4);
+    ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#ff0';ctx.lineWidth=1;ctx.globalAlpha=0.7;
+    ctx.stroke();ctx.globalAlpha=1;
+    ctx.fillStyle=cfg.inner;ctx.beginPath();ctx.arc(bx,by,1.8,0,Math.PI*2);ctx.fill();
+
   } else {
+    // 普通弹 — 经典红圆球
     ctx.fillStyle=cfg.glow;ctx.beginPath();ctx.arc(bx,by,cfg.size,0,Math.PI*2);ctx.fill();
-    if(!lowDetail){ctx.fillStyle=cfg.inner;ctx.beginPath();ctx.arc(bx,by-1,2,0,Math.PI*2);ctx.fill();}
+    if(!lowDetail){ctx.fillStyle=cfg.inner;ctx.beginPath();ctx.arc(bx,by-0.8,2,0,Math.PI*2);ctx.fill();}
   }
 }
 
@@ -1667,15 +1725,138 @@ function drawItem(it){
   const iy=it.y+(it.collecting?0:it.yoy);
   if(!it.collecting) it.yoy=Math.sin(it.lived*4)*3;
   const c=it.type==='weapon'&&it.weaponSub&&WEAPON_TYPES[it.weaponSub]?WEAPON_TYPES[it.weaponSub].color:(ITEM_COLORS[it.type]||'#fff');
-  // v6.2: 绝对坐标渲染，移除save/restore/translate+createRadialGradient
-  ctx.fillStyle='rgba(255,255,255,0.3)';ctx.beginPath();ctx.arc(it.x,iy,14,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle=c;ctx.globalAlpha=0.4;ctx.beginPath();ctx.arc(it.x,iy,9,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
-  ctx.fillStyle='#fff';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-  const wpIcon=it.type==='weapon'&&it.weaponSub&&WEAPON_TYPES[it.weaponSub]?WEAPON_TYPES[it.weaponSub].icon:'';
-  const icons={weapon:(wpIcon||'🔷'),bomb:'💣',star:'⭐',shield:'🛡️',coin:'🪙',health:'❤️',drone:'🛸',evolve:'🧬'};
-  ctx.fillText(icons[it.type]||'?',it.x,iy);
-  ctx.beginPath();ctx.arc(it.x,iy,18,0,Math.PI*2);ctx.setLineDash([4,4]);ctx.lineDashOffset=it.lived*50;
+  const ix=it.x,iy2=iy,sz=11; // 基础尺寸
+  /* v6.4: 每种道具独特几何形状 — 不再依赖emoji */
+
+  if(it.type==='weapon'){
+    // === 武器 — 菱形水晶（内嵌武器颜色） ===
+    ctx.fillStyle='rgba(255,255,255,0.25)';ctx.beginPath();ctx.arc(ix,iy2,16,0,Math.PI*2);ctx.fill();
+    // 外菱形
+    ctx.fillStyle=c;ctx.globalAlpha=0.5;ctx.beginPath();
+    ctx.moveTo(ix,iy2-sz-3);ctx.lineTo(ix+sz+1,iy2);ctx.lineTo(ix,iy2+sz+3);ctx.lineTo(ix-sz-1,iy2);ctx.closePath();ctx.fill();
+    ctx.globalAlpha=1;
+    // 内菱形亮核
+    ctx.fillStyle='#fff';ctx.globalAlpha=0.9;ctx.beginPath();
+    ctx.moveTo(ix,iy2-sz+2);ctx.lineTo(ix+sz-3,iy2);ctx.lineTo(ix,iy2+sz-2);ctx.lineTo(ix-sz+3,iy2);ctx.closePath();ctx.fill();
+    ctx.globalAlpha=1;
+    // 武器子类型指示点
+    ctx.fillStyle=c;ctx.beginPath();ctx.arc(ix,iy2,3,0,Math.PI*2);ctx.fill();
+
+  } else if(it.type==='bomb'){
+    // === 炸弹 — 尖刺星形 ===
+    ctx.fillStyle='rgba(255,255,0,0.2)';ctx.beginPath();ctx.arc(ix,iy2,16,0,Math.PI*2);ctx.fill();
+    const spikes=8;const outer=sz+3,inner=sz*0.45;const brot=(it._rot||0);
+    ctx.fillStyle=c;ctx.beginPath();
+    for(let i=0;i<spikes*2;i++){
+      const r=i%2===0?outer:inner;
+      const a=i*Math.PI/spikes-Math.PI/2+brot;
+      const px=ix+Math.cos(a)*r,py=iy2+Math.sin(a)*r;
+      if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+    }
+    ctx.closePath();ctx.fill();
+    // 红芯
+    ctx.fillStyle='#f44';ctx.beginPath();ctx.arc(ix,iy2,3,0,Math.PI*2);ctx.fill();
+
+  } else if(it.type==='star'){
+    // === 星星 — 五角星 ===
+    ctx.fillStyle='rgba(255,215,0,0.2)';ctx.beginPath();ctx.arc(ix,iy2,16,0,Math.PI*2);ctx.fill();
+    const srot=(it._rot||0)*0.8;
+    ctx.fillStyle='#ffd700';ctx.beginPath();
+    for(let i=0;i<10;i++){
+      const r=i%2===0?sz+2:sz*0.45;
+      const a=i*Math.PI/5-Math.PI/2+srot;
+      const px=ix+Math.cos(a)*r,py=iy2+Math.sin(a)*r;
+      if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+    }
+    ctx.closePath();ctx.fill();
+    // 白高光
+    ctx.fillStyle='rgba(255,255,255,0.7)';ctx.beginPath();
+    ctx.arc(ix-2,iy2-2,2.5,0,Math.PI*2);ctx.fill();
+
+  } else if(it.type==='shield'){
+    // === 护盾 — 圆角六边形盾牌 ===
+    ctx.fillStyle='rgba(0,255,0,0.15)';ctx.beginPath();ctx.arc(ix,iy2,16,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=c;ctx.globalAlpha=0.6;ctx.beginPath();
+    for(let i=0;i<6;i++){const a=i*Math.PI/3;a<Math.PI?null:null;const r=sz+2;const pa=[[-r,-r*0.7],[r,-r*0.7],[r*1.1,r*0.3],[r*0.5,r*1.15],[-r*0.5,r*1.15],[-r*1.1,r*0.3]][i];if(i===0)ctx.moveTo(ix+pa[0],iy2+pa[1]);else ctx.lineTo(ix+pa[0],iy2+pa[1]);}
+    // 用简化的盾形：上宽下窄
+    ctx.beginPath();ctx.moveTo(ix-sz-2,iy2-sz);
+    ctx.quadraticCurveTo(ix,iy2-sz-4,ix+sz+2,iy2-sz);
+    ctx.lineTo(ix+sz+1,iy2+sz*0.3);
+    ctx.lineTo(ix+sz*0.4,iy2+sz+3);
+    ctx.lineTo(ix-sz*0.4,iy2+sz+3);
+    ctx.lineTo(ix-sz-1,iy2+sz*0.3);
+    ctx.closePath();ctx.fill();ctx.globalAlpha=1;
+    // 十字标志
+    ctx.fillStyle='#fff';ctx.fillRect(ix-1,iy2-4,2,8);ctx.fillRect(ix-4,iy2-1,8,2);
+
+  } else if(it.type==='coin'){
+    // === 金币 — 金色圆环 + 内C符号 ===
+    ctx.fillStyle='rgba(255,200,0,0.15)';ctx.beginPath();ctx.arc(ix,iy2,16,0,Math.PI*2);ctx.fill();
+    // 外圈金环
+    ctx.strokeStyle='#ffd700';ctx.lineWidth=3;ctx.beginPath();ctx.arc(ix,iy2,sz+1,0,Math.PI*2);ctx.stroke();
+    // 内填充
+    ctx.fillStyle='#ffcc00';ctx.globalAlpha=0.5;ctx.beginPath();ctx.arc(ix,iy2,sz-2,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+    // $ 符号
+    ctx.fillStyle='#b8860b';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('$',ix,iy2);ctx.textAlign='left';
+
+  } else if(it.type==='health'){
+    // === 血包 — 粉红十字/心形混合 ===
+    ctx.fillStyle='rgba(255,0,170,0.15)';ctx.beginPath();ctx.arc(ix,iy2,16,0,Math.PI*2);ctx.fill();
+    // 十字形
+    ctx.fillStyle='#ff3399';ctx.fillRect(ix-2.5,iy2-sz-1,5,sz*2+2);
+    ctx.fillRect(ix-sz-1,iy2-2.5,sz*2+2,5);
+    // 白边框
+    ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.5;ctx.strokeRect(ix-2.5,iy2-sz-1,5,sz*2+2);
+    // 四角小圆装饰
+    ctx.fillStyle='rgba(255,100,180,0.6)';
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([dx,dy])=>{
+      ctx.beginPath();ctx.arc(ix+dx*(sz+3),iy2+dy*(sz+3),2,0,Math.PI*2);ctx.fill();
+    });
+
+  } else if(it.type==='drone'){
+    // === 无人机 — 扁椭圆UFO ===
+    ctx.fillStyle='rgba(68,170,255,0.15)';ctx.beginPath();ctx.arc(ix,iy2,16,0,Math.PI*2);ctx.fill();
+    // 扁椭圆机身
+    ctx.fillStyle=c;ctx.globalAlpha=0.6;ctx.beginPath();
+    ctx.ellipse(ix,iy2,sz+5,sz*0.35,0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+    // 驾驶舱圆顶
+    ctx.fillStyle='rgba(150,210,255,0.8)';ctx.beginPath();
+    ctx.ellipse(ix,iy2-2,sz*0.45,sz*0.35,0,0,Math.PI*2);ctx.fill();
+    // 两侧灯
+    ctx.fillStyle='#0ff';ctx.beginPath();ctx.arc(ix-sz-2,iy2,2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#f44';ctx.beginPath();ctx.arc(ix+sz+2,iy2,2,0,Math.PI*2);ctx.fill();
+
+  } else if(it.type==='evolve'){
+    // === 进化 — 双螺旋/DNA环 ===
+    ctx.fillStyle='rgba(255,0,255,0.12)';ctx.beginPath();ctx.arc(ix,iy2,17,0,Math.PI*2);ctx.fill();
+    const erot=(it._rot||0),er=sz+1;
+    // 左螺旋臂（紫）
+    ctx.strokeStyle='#d0f';ctx.lineWidth=2.5;ctx.globalAlpha=0.7;ctx.beginPath();
+    for(let t=0;t<=20;t++){const a=t*0.35+erot,r=er*(0.4+0.6*t/20);const px=ix+Math.cos(a)*r,py=iy2+Math.sin(a)*r*0.55;if(t===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
+    ctx.stroke();
+    // 右螺旋臂（粉）
+    ctx.strokeStyle='#f6a';ctx.beginPath();
+    for(let t=0;t<=20;t++){const a=-t*0.35+erot+Math.PI,r=er*(0.4+0.6*t/20);const px=ix+Math.cos(a)*r,py=iy2+Math.sin(a)*r*0.55;if(t===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
+    ctx.stroke();ctx.globalAlpha=1;
+    // 中心发光核
+    ctx.fillStyle='rgba(255,200,255,0.9)';ctx.beginPath();ctx.arc(ix,iy2,3,0,Math.PI*2);ctx.fill();
+
+  } else {
+    // 兜底圆形
+    ctx.fillStyle='rgba(255,255,255,0.3)';ctx.beginPath();ctx.arc(ix,iy2,14,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=c;ctx.globalAlpha=0.4;ctx.beginPath();ctx.arc(ix,iy2,9,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+    ctx.fillStyle='#fff';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('?',ix,iy2);
+  }
+
+  // 统一外框虚线旋转环（所有道具共用）
+  ctx.beginPath();ctx.arc(ix,iy2,18,0,Math.PI*2);ctx.setLineDash([4,4]);
+  ctx.lineDashOffset=(it.lived||0)*50;
   ctx.strokeStyle=c;ctx.lineWidth=1.5;ctx.stroke();ctx.setLineDash([]);
+
+  // 道具旋转动画
+  it._rot=(it._rot||0)+0.03;
 }
 
 // ==================== 星风暴 (擦弹必杀) ====================
@@ -2269,12 +2450,16 @@ function update(now){
   for(let i=playerBullets.length-1;i>=0;i--){
     const b=playerBullets[i];
     if(b.type==='homing'){
-        let nx=0,ny=-1,md=400;
-        for(let j=enemies.length-1;j>=0;j--){const e=enemies[j];const dx=e.x-b.x,dy=e.y-b.y,d=Math.hypot(dx,dy);if(d<md){md=d;nx=dx/d;ny=dy/d;}}
-        if(md<400){
-          const tvx=nx*b.speed, tvy=ny*b.speed;
-          const f=Math.min(1,b.turnRate*dt);
-          b.vx+=(tvx-b.vx)*f; b.vy+=(tvy-b.vy)*f;
+        // v6.4: 追踪弹每4帧重算目标（原每帧遍历所有敌人=O(n×m)）
+        b._trc=(b._trc||0)+1;
+        if(b._trc>=4){
+          b._trc=0;let nx=0,ny=-1,md=400;
+          for(let j=enemies.length-1;j>=0;j--){const e=enemies[j];const dx=e.x-b.x,dy=e.y-b.y,d=Math.hypot(dx,dy);if(d<md){md=d;nx=dx/d;ny=dy/d;}}
+          if(md<400){b._tnx=nx;b._tny=ny;}
+        }
+        if(b._tnx!==undefined){
+          const tvx=b._tnx*b.speed,tvy=b._tny*b.speed,f=Math.min(1,b.turnRate*dt);
+          b.vx+=(tvx-b.vx)*f;b.vy+=(tvy-b.vy)*f;
         }
       }
       b.x+=b.vx*dt;b.y+=b.vy*dt;
@@ -2293,6 +2478,10 @@ function update(now){
   for(let i=enemyBullets.length-1;i>=0;i--){
     const b=enemyBullets[i];
     b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
+    // v6.4: 旋转动画（六边形/星形弹幕视觉旋转）
+    if(b.bulletType==='orb'||b.bulletType==='explosive'){
+      b._rot=(b._rot||0)+dt*(b.bulletType==='orb'?2.5:4);
+    }
     if(b.y>H+30||b.y<-30||b.x<-30||b.x>W+30||b.life<=0||i>=MAX_ENEMY_BULLETS){
       // 爆炸弹死亡时散开
       if((b.bulletType==='explosive'||b.willSplit)&&b.life<=0&&b.y<H+30&&b.y>-30&&b.x<W+30&&b.x>-30){
@@ -2766,29 +2955,38 @@ function draw(offset){
   // 无人机
   if(drones.length>0) drawDrones();
 
-  // 粒子（去掉shadowBlur大幅提升性能）
+  // 粒子（v6.4: 批量渲染 — 按颜色分组，单次beginPath/fill，减少90%canvas调用）
+  const _particleBatches=new Map();
   for(let i=0;i<particles.length;i++){
     const p=particles[i];
     if(p.y<-50||p.y>H+50||p.x<-50||p.x>W+50) continue;
     if(p.type==='text'){
-      // 文本粒子（技能名提示）
-      ctx.globalAlpha=p.alpha;
-      ctx.fillStyle=p.color;
-      ctx.font=`bold ${p.size}px sans-serif`;
-      ctx.textAlign='center';
+      ctx.globalAlpha=p.alpha;ctx.fillStyle=p.color;
+      ctx.font=`bold ${p.size}px sans-serif`;ctx.textAlign='center';
       ctx.fillText(p.text||'',p.x,p.y);
     } else {
-      ctx.globalAlpha=p.alpha;
-      ctx.fillStyle=p.color;
-      ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.alpha,0,Math.PI*2);ctx.fill();
+      const key=p.color+'|'+Math.floor(p.alpha*10); // 同色同透明度合并
+      let arr=_particleBatches.get(key);if(!arr){arr=[];_particleBatches.set(key,arr);}
+      arr.push(p);
     }
   }
+  // 批量绘制：每种颜色组合只需一次beginPath
+  _particleBatches.forEach(arr=>{
+    if(arr.length===0) return;
+    ctx.globalAlpha=arr[0].alpha;ctx.fillStyle=arr[0].color;ctx.beginPath();
+    for(let k=0;k<arr.length;k++){
+      const p=arr[k],r=p.size*p.alpha;
+      ctx.moveTo(p.x+r,p.y);ctx.arc(p.x,p.y,r,0,Math.PI*2);
+    }
+    ctx.fill();
+  });
+  _particleBatches.clear();
   ctx.globalAlpha=1;
   ctx.textAlign='left';
 
-  // 得分飘字
+  // 得分飘字（v6.4: 用预计算颜色，避免每帧parseColor）
   scorePopups.forEach(s=>{
-    ctx.fillStyle=`rgba(${parseColor(s.color)},${s.opacity})`;
+    ctx.fillStyle=s._rgba.replace(')',','+s.opacity+')');
     ctx.font=`bold ${s.size}px sans-serif`;
     ctx.textAlign='center';
     ctx.fillText(s.text,s.x,s.y);
