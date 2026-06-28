@@ -263,8 +263,8 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v6.2';
-const BUILD_DATE = '2026-06-26';
+const GAME_VERSION = 'v6.3';
+const BUILD_DATE = '2026-06-28';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 canvas.style.imageRendering = 'auto';
@@ -1100,7 +1100,7 @@ function toggleSfx(){
 // ==================== 游戏状态 ====================
 let player,enemies,playerBullets,enemyBullets,items,particles;
 let score=0, heightM=0, combo=0, maxCombo=0, kills=0;
-let screenShakeTrauma=0, hitStop=0;
+let screenShakeTrauma=0, hitStop=0, damageVignette=0;
 let feverGauge=0, feverActive=false, feverTimer=0, feverCount=0;
 let bombCount=3, weaponLevel=1;
 let bossFight=null, waveTimer=0, nextBossAt=500;
@@ -2169,6 +2169,8 @@ function update(now){
 
   // Trauma²震屏衰减
   if(screenShakeTrauma>0){screenShakeTrauma*=Math.pow(.88,dt*60);if(screenShakeTrauma<.001)screenShakeTrauma=0;}
+  // 受击红晕衰减
+  if(damageVignette>0){damageVignette-=dt*1.2;if(damageVignette<0)damageVignette=0;}
 
   // 星风暴更新
   updateStarStorm(dt);
@@ -2397,8 +2399,8 @@ function update(now){
           if(e.hp<=0){
             spawnParticles(e.x,e.y,25,e.color,120,.5,3);
             SFX.explode();
-            screenShakeTrauma=Math.min(1,Math.max(screenShakeTrauma,e.type==='boss'?.7:(e.type==='large'?.25:.08)));
-            hitStop=e.type==='boss'?.15:(e.type==='large'?.04:0);
+            screenShakeTrauma=Math.min(1,Math.max(screenShakeTrauma,e.type==='boss'?.7:(e.type==='large'?.3:.12)));
+            hitStop=e.type==='boss'?.15:(e.type==='large'?.04:.02);
             addScorePopup(e.x,e.y-10,'+'+e.score,e.color,e.type==='boss'?22:(e.type==='large'?18:14));
             const mult=player.score2xTimer>0?2:1+(currentSkin===1?.1:0);
             const addScore=e.score*mult;
@@ -2437,8 +2439,8 @@ function update(now){
           if(e.hp<=0){
           spawnParticles(e.x,e.y,25,e.color,120,.5,3);
           SFX.explode();
-          screenShakeTrauma=Math.min(1,Math.max(screenShakeTrauma,e.type==='boss'?.7:(e.type==='large'?.25:.08)));
-          hitStop=e.type==='boss'?.15:(e.type==='large'?.04:0);
+          screenShakeTrauma=Math.min(1,Math.max(screenShakeTrauma,e.type==='boss'?.7:(e.type==='large'?.3:.12)));
+          hitStop=e.type==='boss'?.15:(e.type==='large'?.04:.02);
           addScorePopup(e.x,e.y-10,'+'+e.score,e.color,e.type==='boss'?22:(e.type==='large'?18:14));
 
           const mult=player.score2xTimer>0?2:1+(currentSkin===1?.1:0);
@@ -2501,7 +2503,7 @@ function update(now){
         } else {
           // 扣血+无敌帧
           player.hp--;player.invincible=1.5;player.damageFlash=.15;
-          screenShakeTrauma=.5;
+          screenShakeTrauma=.5;damageVignette=.35;
           spawnParticles(player.x,player.y,10,'#f44',80,.3,2);
           SFX.hit(200);
           if(player.hp<=0){gameOver('被击落了');return;}
@@ -2517,7 +2519,7 @@ function update(now){
       if(Math.abs(b.x-player.x)<14&&Math.abs(b.y-player.y)<18){
         // 扣血+无敌帧
         player.hp--;player.invincible=1.5;player.damageFlash=.15;
-        screenShakeTrauma=.5;
+        screenShakeTrauma=.5;damageVignette=.35;
         spawnParticles(player.x,player.y,6,'#f44',60,.2,2);
         SFX.hit(250);
         enemyBullets.splice(bi,1);
@@ -2731,7 +2733,7 @@ function draw(offset){
   // Trauma² 震屏
   let sx=0,sy=0;
   if(screenShakeTrauma>0){
-    const mag=screenShakeTrauma*screenShakeTrauma*25;
+    const mag=screenShakeTrauma*screenShakeTrauma*50;
     sx=(Math.random()-.5)*mag*2;
     sy=(Math.random()-.5)*mag*2;
   }
@@ -2846,6 +2848,25 @@ function draw(offset){
   if(player.bombAnim>0){ctx.fillStyle=`rgba(255,255,255,${player.bombAnim*.6})`;ctx.fillRect(0,0,W,H);}
 
   ctx.restore();
+
+  // === 受击红晕 + 低血量警示 ===
+  if(gameRunning&&player.alive){
+    const lowHp=player.hp<=player.maxHp*.25;
+    const vignetteAlpha=Math.max(lowHp?.15:0,damageVignette*.7);
+    if(vignetteAlpha>.001){
+      const vg=ctx.createRadialGradient(W/2,H*.55,W*.1,W/2,H*.55,W*.8);
+      vg.addColorStop(0,'rgba(255,0,0,0)');
+      vg.addColorStop(.35,'rgba(255,0,0,0)');
+      vg.addColorStop(.7,`rgba(180,0,0,${vignetteAlpha*.5})`);
+      vg.addColorStop(1,`rgba(255,0,0,${vignetteAlpha})`);
+      ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+      // 低血量脉冲
+      if(lowHp&&Math.sin(frameCount*.2)>.4){
+        ctx.fillStyle=`rgba(255,0,0,${.08+Math.sin(frameCount*.2)*.05})`;
+        ctx.fillRect(0,0,W,H);
+      }
+    }
+  }
 
   // === HUD（不受震屏影响） ===
   // 左侧面板
@@ -3065,7 +3086,7 @@ function startGame(){
   scorePopups=[];
   bossKillAnnounce={active:false,timer:0,text:''};
   score=0;heightM=0;combo=0;maxCombo=0;kills=0;
-  screenShakeTrauma=0;hitStop=0;
+  screenShakeTrauma=0;hitStop=0;damageVignette=0;
   feverGauge=0;feverActive=false;feverTimer=0;feverCount=0;
   bombCount=diffCfg.startBombs;weaponLevel=1;weaponType='spread';weaponEvolved=false;
   bossFight=null;waveTimer=.3;nextBossAt=diffCfg.bossInterval;
