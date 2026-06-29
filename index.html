@@ -293,7 +293,8 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v6.6.1';
+const GAME_VERSION = 'v6.7';
+// v6.7: 终极卡死修复 — 看门狗1s+Boss阶段零副作用+双重静止检测+敌弹清理
 // v6.6.1: 多重防护 — 阶段无敌缩至0.5s+帧僵死检测+全路径safeGuard
 // v6.5.2: 彻底修复Boss阶段卡死 - try-catch保护 + 清理残留setTimeout + 阶段转换时清理过量粒子
 // + P1: Boss阶段化系统 — 血量75%/50%/25%时自动变相（攻击模式+颜色+护盾）
@@ -301,7 +302,7 @@ const GAME_VERSION = 'v6.6.1';
 // + Boss每个阶段有独特的弹幕模式和视觉效果
 // + 武器升级可选：升级当前武器/切换武器类型/获得特殊能力
 // 性能优化：Boss阶段转换时添加无敌帧，避免玩家被秒杀
-const BUILD_DATE = '2026-06-28';
+const BUILD_DATE = '2026-06-29';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 canvas.style.imageRendering = 'auto';
@@ -1329,10 +1330,11 @@ function toggleSfx(){
 let player,enemies,playerBullets,enemyBullets,items,particles;
 let score=0, heightM=0, combo=0, maxCombo=0, kills=0;
 let screenShakeTrauma=0, hitStop=0, damageVignette=0;
-// v6.6.1: 全局看门狗 — 检测游戏异常冻结（gameRunning=false 或画面静止）
+// v6.7: 全局看门狗 — 双重检测（gameRunning=false + 画面静止），1秒超时自动恢复
 let _watchdogTimer=0; // 异常状态帧计数
-let _lastWatchdogFingerprint=0; // 上一帧"指纹"（enemies/bullets数量+score），用于检测画面静止
-const WATCHDOG_MAX=180; // 约3秒@60fps，超限自动恢复
+let _lastWatchdogFingerprint=0; // 上一帧"指纹"
+let _watchdogRecoveryCount=0; // v6.7: 恢复次数统计（用于日志）
+const WATCHDOG_MAX=60; // ~1秒@60fps（v6.7: 从180大幅缩短，快速恢复优先）
 // v6.5.3: Boss出场剧情延迟队列（替代setTimeout）
 let _bossStoryQueue=null;
 // v6.5.2: 帧级延迟队列（替代setTimeout，避免iframe中不可靠）
@@ -2998,7 +3000,7 @@ function update(now){
     if(e.telegraphTimer>0) e.telegraphTimer-=dt;
     if(e.invulnerable>0) e.invulnerable-=dt;
     
-    // Boss阶段转换检测（v6.5.3: 极简版，只做最必要的操作）
+    // Boss阶段转换检测（v6.7: 零副作用版 —— 只改phase/color/invulnerable，不调用任何其他函数）
     if(e.type==='boss'&&!e._phaseChanging){
       try{
         const hpRatio=e.hp/e.maxHp;
@@ -3006,17 +3008,11 @@ function update(now){
           if(e.phase<ph&&hpRatio<=e.phaseThresholds[ph-1]){
             e.phase=ph;
             e._phaseChanging=true;
-            e._phaseChangeTimer=0.5; // 0.5秒（原1.5秒太长，用户以为卡死）
-            e.invulnerable=0.5;
-            // v6.6.1: 屏幕闪烁效果（让玩家感知到阶段转换，避免误以为卡死）
-            damageVignette=Math.min(1,damageVignette+.6);
-            screenShakeTrauma=Math.min(1,screenShakeTrauma+.3);
-            // 阶段颜色（用最安全的方式）
+            e._phaseChangeTimer=0.3; // v6.7: 缩短到0.3秒
+            e.invulnerable=0.3;
+            // 只改颜色，不做其他任何事
             const phaseColors=['#f44','#f80','#f0f','#0ff'];
             e.strokeColor=phaseColors[ph]||'#f44';
-            // 最少量粒子
-            try{spawnParticles(e.x,e.y,12,'#ff0',80,.4,2);}catch(_){}
-            try{addScorePopup(e.x,e.y-50,`⚡ Phase ${ph}!`,'#ff0',16);}catch(_){}
             console.log(`[Boss] → Phase ${ph}, HP:${Math.round(hpRatio*100)}%`);
             break;
           }
@@ -3024,7 +3020,6 @@ function update(now){
       }catch(err){
         console.error('[Boss Phase Error]',err);
         e._phaseChanging=false;
-        // 确保游戏不会因为这个卡死
         if(!gameRunning){gameRunning=true;weaponUpgradeActive=false;}
       }
     }
@@ -3511,37 +3506,42 @@ function gameLoop(now){
     if(!lastTime) lastTime=now;
     if(gameRunning||deathSlowMo>0) {
       update(now);
-      // v6.6.1: 计算帧指纹（enemies数+bullets数+score）检测画面是否真的在变化
-      const fp=enemies.length*1000+enemyBullets.length*100+playerBullets.length*10+Math.floor(score);
+      // v6.7: 帧指纹（加入bossHp）检测画面是否真的在变化
+      const bossHp=bossFight?Math.floor(bossFight.hp):0;
+      const fp=enemies.length*1000+enemyBullets.length*100+playerBullets.length*10+Math.floor(score)+bossHp;
       if(fp===_lastWatchdogFingerprint){
-        _watchdogTimer++; // 画面完全静止时递增
+        _watchdogTimer++;
       } else {
-        _watchdogTimer=0; _lastWatchdogFingerprint=fp; // 有变化就归零
+        _watchdogTimer=0; _lastWatchdogFingerprint=fp;
       }
-      // 画面静止超过阈值且无可见UI面板 → 自动恢复
-      if(_watchdogTimer>WATCHDOG_MAX && gameRunning
-        && !document.getElementById('weapon-upgrade').style.display.match(/flex/)
-        && !document.getElementById('gameover').style.display.match(/flex/)
-        && !document.getElementById('menu').style.display.match(/flex/)
-        && !storyActive){
-        console.warn('[Watchdog] 检测到画面静止，自动触发刷新！');
-        // 强制重置所有可能卡死的状态
+      // v6.7: 画面静止 → 强制恢复（安全优先）
+      if(_watchdogTimer>WATCHDOG_MAX && gameRunning && !storyActive){
+        _watchdogRecoveryCount++;
+        console.warn(`[Watchdog v6.7] #${_watchdogRecoveryCount} 静止恢复! e=${enemies.length} eb=${enemyBullets.length}`);
         enemies.forEach(e=>{e._phaseChanging=false;e._phaseChangeTimer=0;e.invulnerable=0;});
+        if(enemyBullets.length>150) enemyBullets.splice(0,enemyBullets.length-150);
         _watchdogTimer=0;
-        waveTimer=0.1; // 立即刷一波敌人
+        waveTimer=0.1;
       }
     } else {
-      // v6.6.1: gameRunning=false时递增看门狗
       _watchdogTimer++;
-      // 超过阈值且没有可见UI面板 → 自动恢复
-      if(_watchdogTimer>WATCHDOG_MAX && !document.getElementById('gameover')?.style.display?.match(/flex|block/)
-        && !document.getElementById('menu')?.style.display?.match(/flex|block/)
-        && !document.getElementById('weapon-upgrade')?.style.display?.match(/flex|block/)){
-        console.warn('[Watchdog] 检测到异常冻结，自动恢复游戏！');
+      // v6.7: 冻结恢复 —— 统一判断
+      const goEl=document.getElementById('gameover');
+      const menuEl=document.getElementById('menu');
+      const wuEl=document.getElementById('weapon-upgrade');
+      const isNormalStop=(goEl&&goEl.style.display.match(/flex|block/))
+                     ||(menuEl&&menuEl.style.display.match(/flex|block/))
+                     ||(wuEl&&wuEl.style.display.match(/flex|block/))
+                     ||storyActive;
+      if(_watchdogTimer>WATCHDOG_MAX && !isNormalStop){
+        _watchdogRecoveryCount++;
+        console.warn(`[Watchdog v6.7] #${_watchdogRecoveryCount} 冻结恢复! running=${gameRunning}`);
         gameRunning=true;
         weaponUpgradeActive=false;
         _watchdogTimer=0;
         enemies.forEach(e=>{e._phaseChanging=false;e._phaseChangeTimer=0;e.invulnerable=0;});
+        if(enemyBullets.length>150) enemyBullets.splice(0,enemyBullets.length-150);
+        waveTimer=0.1;
       }
     }
     draw(heightM);
