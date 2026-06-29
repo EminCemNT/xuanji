@@ -293,8 +293,8 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v6.5.3';
-// v6.5.3: 终极卡死修复 — 全局看门狗(5秒自动恢复)+Boss阶段转换极简化+gameRunning=false移入try+删除最后setTimeout
+const GAME_VERSION = 'v6.6';
+// v6.6: 音效系统 overhaul — 增大所有音效音量+用户首次交互激活音频+SFX开关优化
 // v6.5.2: 彻底修复Boss阶段卡死 - try-catch保护 + 清理残留setTimeout + 阶段转换时清理过量粒子
 // + P1: Boss阶段化系统 — 血量75%/50%/25%时自动变相（攻击模式+颜色+护盾）
 // + P2: 武器升级选择界面 — 收集武器道具时弹出3选1 Roguelite界面
@@ -1202,10 +1202,16 @@ function addScorePopup(x,y,text,color='#fff',size=16){
 // ==================== 音效系统 (Web Audio API) ====================
 let audioCtx=null, bgmGain=null, bgmActive=false, sfxMuted=false;
 function initAudio(){
-  if(audioCtx) return;
-  try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+  if(audioCtx) { if(audioCtx.state==='suspended') audioCtx.resume(); return; }
+  try{
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+  }catch(e){return;}
   bgmGain=audioCtx.createGain();bgmGain.gain.value=0;bgmGain.connect(audioCtx.destination);
 }
+// 全局点击/触摸激活音频（浏览器自动播放策略）
+document.addEventListener('click',()=>{ initAudio(); if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume(); },{once:false});
+document.addEventListener('touchstart',()=>{ initAudio(); if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume(); },{once:false});
 function playTone(freq,dur,type='square',vol=.12,detune=0){
   if(!audioCtx||sfxMuted) return;
   const t=audioCtx.currentTime;
@@ -1227,15 +1233,15 @@ function playNoise(dur,vol=.08,lpFreq=800){
   src.start(t);src.stop(t+dur);
 }
 const SFX={
-  shoot(){playTone(800,.04,'square',.06);playTone(1200,.03,'square',.04,50);},
-  hit(freq=300){playTone(freq,.06,'sawtooth',.08);playNoise(.04,.03,1500);},
-  explode(){playNoise(.25,.12,400);playTone(80,.2,'sine',.15);},
-  pickup(){playTone(600,.06,'square',.06);setTimeout(()=>playTone(900,.08,'square',.07),40);},
-  bomb(){playNoise(.5,.15,200);playTone(50,.4,'sine',.2);},
-  bossWarning(){playTone(120,.3,'sawtooth',.1);setTimeout(()=>playTone(160,.3,'sawtooth',.1),200);},
-  die(){playNoise(.4,.1,300);playTone(60,.3,'sine',.15);playTone(40,.5,'sawtooth',.08);},
-  achievement(){playTone(523,.1,'square',.06);setTimeout(()=>playTone(659,.1,'square',.06),100);setTimeout(()=>playTone(784,.15,'square',.07),200);},
-  fever(){playTone(440,.08,'square',.05);setTimeout(()=>playTone(554,.08,'square',.05),60);setTimeout(()=>playTone(659,.08,'square',.05),120);setTimeout(()=>playTone(880,.12,'square',.06),180);},
+  shoot(){playTone(900,.05,'square',.10);playTone(1400,.04,'square',.08,60);},
+  hit(freq=300){playTone(freq,.08,'sawtooth',.12);playNoise(.05,.05,1800);},
+  explode(){playNoise(.3,.18,500);playTone(100,.25,'sine',.20);},
+  pickup(){playTone(700,.08,'square',.10);setTimeout(()=>playTone(1000,.10,'square',.12),50);},
+  bomb(){playNoise(.6,.20,250);playTone(60,.5,'sine',.25);},
+  bossWarning(){playTone(150,.4,'sawtooth',.15);setTimeout(()=>playTone(200,.4,'sawtooth',.15),250);setTimeout(()=>playTone(150,.5,'sawtooth',.12),500);},
+  die(){playNoise(.5,.15,350);playTone(80,.4,'sine',.18);playTone(50,.6,'sawtooth',.10);},
+  achievement(){playTone(600,.12,'square',.10);setTimeout(()=>playTone(750,.12,'square',.10),120);setTimeout(()=>playTone(900,.18,'square',.12),240);},
+  fever(){playTone(500,.10,'square',.08);setTimeout(()=>playTone(630,.10,'square',.08),70);setTimeout(()=>playTone(750,.10,'square',.08),140);setTimeout(()=>playTone(1000,.15,'square',.10),210);},
   combo(c){
     // 递进式连击音效：每5连击升一个音阶，有递进感
     const base = 300 + Math.min(c, 60) * 15;
