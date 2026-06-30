@@ -1382,6 +1382,10 @@ let _watchdogTimer=0; // 异常状态帧计数
 let _lastWatchdogFingerprint=0; // 上一帧"指纹"
 let _watchdogRecoveryCount=0; // v6.7: 恢复次数统计（用于日志）
 const WATCHDOG_MAX=60; // ~1秒@60fps（v6.7: 从180大幅缩短，快速恢复优先）
+// v6.13: 半冻结检测 — 专门检测"风筝能动但敌机/子弹不动"的异常
+let _semiFreezeCounter=0; // 敌弹+敌机数量连续不变帧数
+let _lastEntityCount=0;   // 上一帧的 (enemyBullets.length*100 + enemies.length)
+const SEMI_FREEZE_MAX=90; // ~1.5秒@60fps（比看门狗宽松，避免误判）
 // v6.5.3: Boss出场剧情延迟队列（替代setTimeout）
 let _bossStoryQueue=null;
 // v6.5.2: 帧级延迟队列（替代setTimeout，避免iframe中不可靠）
@@ -3600,6 +3604,9 @@ function gameLoop(now){
   // ── 阶段1: 始终执行的dt安全计算（不受任何try-catch影响） ──
   if(!lastTime) lastTime=now;
 
+  // v6.13: 半冻结检测 — 快照update前的敌机+敌弹数量
+  const _preEntityCount = enemyBullets.length * 100 + enemies.length;
+
   // ── 阶段2: update() — 独立try-catch，出错不影响后续看门狗和draw ──
   try {
     if(gameRunning||deathSlowMo>0) {
@@ -3609,6 +3616,36 @@ function gameLoop(now){
     console.error('[v6.12 update] 异常(已隔离):', e.message||e);
     // 紧急恢复关键状态，防止级联崩溃
     try { if(!isFinite(dt)) dt=0.016; if(!isFinite(lastTime)) lastTime=performance.now(); } catch(_) {}
+  }
+
+  // v6.13: 半冻结检测（在ALL try-catch外面！）— 专门抓"风筝能动但其他不动"
+  if(gameRunning && (enemies.length > 0 || enemyBullets.length > 0)){
+    const _postEntityCount = enemyBullets.length * 100 + enemies.length;
+    if(_postEntityCount === _lastEntityCount && _postEntityCount > 0){
+      _semiFreezeCounter++;
+    } else {
+      _semiFreezeCounter = 0;
+    }
+    _lastEntityCount = _postEntityCount;
+    // 敌机/弹数量连续~1.5秒不变 → 强制恢复（即使玩家在动）
+    if(_semiFreezeCounter > SEMI_FREEZE_MAX && _postEntityCount > 0){
+      _watchdogRecoveryCount++;
+      console.warn(`[SemiFreeze v6.13] #${_watchdogRecoveryCount} 半冻结恢复! e=${enemies.length} eb=${enemyBullets.length} pb=${playerBullets.length}`);
+      _semiFreezeCounter = 0; _watchdogTimer = 0;
+      // 强制恢复dt和lastTime
+      dt = 0.016; lastTime = performance.now();
+      // 强制推进所有敌机位置（让画面"活过来"）
+      enemies.forEach(e => { e.y += e.vy * dt; e.x += e.vx * dt; });
+      // 清理过量敌弹
+      if(enemyBullets.length > 100) enemyBullets.splice(0, enemyBullets.length - 100);
+      // 强制关闭story
+      if(storyActive){storyActive=false;_storyCurrent=null;_storyPending=[];try{const b=document.getElementById('story-box');if(b)b.classList.remove('show');}catch(_){}}
+      // 重置所有phaseChanging状态
+      enemies.forEach(e=>{e._phaseChanging=false;e._phaseChangeTimer=0;e.invulnerable=0;});
+      waveTimer = 0.1;
+    }
+  } else {
+    _semiFreezeCounter = 0;
   }
 
   // ════════════════════════════════════════
