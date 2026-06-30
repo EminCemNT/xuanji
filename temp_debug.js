@@ -1,294 +1,4 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
-<title>星际风筝传说 - Star Kite Legend</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'PingFang SC','Microsoft YaHei',sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;}
-canvas{display:block;width:100%;height:100%;}
-/* 开始菜单 */
-#menu{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;background:radial-gradient(ellipse at center,#0d0d3a 0%,#050520 60%,#000 100%);overflow:hidden;}
-#menu-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
-.menu-particle{position:absolute;width:2px;height:2px;background:#0ff;border-radius:50%;animation:floatUp 4s infinite;}
-@keyframes floatUp{0%{transform:translateY(0) scale(1);opacity:0;}10%{opacity:1}90%{opacity:1}100%{transform:translateY(-100vh) scale(0);opacity:0;}}
-.menu-glow{position:absolute;width:400px;height:400px;background:radial-gradient(circle,rgba(0,200,255,.15),transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation:pulse 3s ease-in-out infinite;}
-@keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.6}50%{transform:translate(-50%,-50%) scale(1.3);opacity:1}}
-#menu-inner{position:relative;z-index:2;text-align:center;padding:20px;}
-.logo-icon{width:90px;height:90px;margin:0 auto 12px;position:relative;animation:logoFloat 2s ease-in-out infinite;}
-.logo-kite{position:absolute;inset:0;}
-.logo-kite svg{width:100%;height:100%;filter:drop-shadow(0 0 20px #0ff) drop-shadow(0 0 40px #06f);}
-.logo-pulse{position:absolute;inset:-20px;border-radius:50%;background:radial-gradient(circle,rgba(0,200,255,.2),transparent 70%);animation:logoPulse 2s ease-in-out infinite;}
-@keyframes logoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-@keyframes logoPulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.2);opacity:1}}
-.menu-title{font-size:40px;font-weight:900;color:#fff;letter-spacing:8px;background:linear-gradient(180deg,#fff 0%,#0cf 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:none;margin-bottom:4px;}
-.menu-title-en{font-size:13px;color:rgba(0,200,255,.7);letter-spacing:6px;margin-bottom:8px;}
-.menu-sub{font-size:13px;color:rgba(255,255,255,.5);letter-spacing:2px;margin-bottom:30px;line-height:1.8;}
-#btn-start{padding:14px 56px;font-size:18px;font-weight:700;color:#000;background:linear-gradient(135deg,#0ff,#06f);border:none;border-radius:50px;cursor:pointer;pointer-events:auto;letter-spacing:4px;box-shadow:0 4px 30px rgba(0,180,255,.6),0 0 0 1px rgba(255,255,255,.4);transition:transform .1s,box-shadow .1s;}
-#btn-start:active{transform:scale(.95);box-shadow:0 2px 15px rgba(0,180,255,.4);}
-.menu-hint{margin-top:20px;font-size:11px;color:rgba(255,255,255,.3);letter-spacing:1px;}
-.menu-version{position:fixed;right:12px;bottom:10px;font-size:11px;color:rgba(255,255,255,.25);letter-spacing:1px;z-index:21;font-family:monospace;}
-.menu-stats{margin-top:16px;font-size:12px;color:rgba(255,255,255,.4);line-height:1.8;}
-#skin-selector{display:flex;gap:8px;justify-content:center;margin:12px 0;flex-wrap:wrap;}
-.skin-btn{width:44px;height:44px;border-radius:10px;border:2px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);font-size:22px;cursor:pointer;pointer-events:auto;transition:all .2s;}
-.skin-btn.active{border-color:#0cf;box-shadow:0 0 12px rgba(0,200,255,.4);background:rgba(0,200,255,.1);}
-.skin-btn.locked{opacity:.3;filter:grayscale(1);cursor:not-allowed;}
-.skin-lock{font-size:10px;display:block;line-height:1;}
 
-/* 难度选择器 */
-#difficulty-selector{display:flex;gap:6px;justify-content:center;margin:8px 0;flex-wrap:wrap;}
-.diff-btn{padding:6px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);color:rgba(255,255,255,.5);font-size:12px;font-weight:600;cursor:pointer;pointer-events:auto;transition:all .2s;letter-spacing:1px;}
-.diff-btn:hover{border-color:rgba(255,255,255,.4);color:#fff;}
-.diff-btn.active{border-color:var(--dc);box-shadow:0 0 12px var(--ds);background:var(--db);color:var(--dc);}
-.diff-label{font-size:11px;color:rgba(255,255,255,.4);text-align:center;margin-top:2px;letter-spacing:1px;}
-
-/* 结算面板 */
-#gameover{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:30;background:rgba(0,0,0,.85);backdrop-filter:blur(10px);}
-.go-panel{background:rgba(10,10,40,.95);border:1px solid rgba(0,200,255,.3);border-radius:20px;padding:32px;text-align:center;box-shadow:0 0 60px rgba(0,150,255,.2);min-width:280px;max-width:360px;pointer-events:auto;animation:panelIn .3s ease-out;}
-@keyframes panelIn{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
-.go-title{font-size:28px;font-weight:900;color:#e55;letter-spacing:3px;margin-bottom:4px;}
-.go-sub{font-size:12px;color:rgba(255,255,255,.5);margin-bottom:20px;}
-.go-stat{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:14px;color:#aaa;}
-.go-stat span:last-child{color:#fff;font-weight:700;}
-.go-new{color:#0ff;font-size:11px;margin-left:6px;animation:blink .5s infinite;}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-.go-coins{font-size:20px;color:#FFD700;margin:16px 0;font-weight:700;}
-#btn-retry{margin-top:12px;padding:12px 48px;font-size:16px;font-weight:700;color:#000;background:linear-gradient(135deg,#0ff,#06f);border:none;border-radius:30px;cursor:pointer;pointer-events:auto;letter-spacing:2px;box-shadow:0 4px 20px rgba(0,180,255,.5);}
-#btn-menu{margin-top:8px;padding:10px 36px;font-size:13px;font-weight:600;color:#0cf;background:transparent;border:1px solid rgba(0,200,255,.3);border-radius:30px;cursor:pointer;pointer-events:auto;letter-spacing:2px;}
-
-/* 成就弹窗 */
-#achievement-popup{position:fixed;top:-80px;left:50%;transform:translateX(-50%);z-index:40;background:rgba(10,10,40,.95);border:2px solid #ff0;border-radius:12px;padding:10px 20px;display:none;text-align:center;pointer-events:none;box-shadow:0 0 30px rgba(255,200,0,.3);transition:top .4s cubic-bezier(.22,1,.36,1);}
-#achievement-popup.show{display:block;top:20px;}
-#achievement-popup .ach-icon{font-size:28px;}
-#achievement-popup .ach-title{color:#ff0;font-size:14px;font-weight:700;margin:4px 0;}
-#achievement-popup .ach-desc{color:rgba(255,255,255,.6);font-size:11px;}
-
-/* 每日任务 */
-#daily-missions{position:fixed;right:10px;bottom:80px;z-index:15;pointer-events:none;display:flex;flex-direction:column;gap:4px;}
-.mission-item{background:rgba(10,10,40,.8);border:1px solid rgba(0,200,255,.2);border-radius:8px;padding:4px 10px;font-size:10px;color:rgba(255,255,255,.6);display:flex;align-items:center;gap:6px;transition:all .3s;}
-.mission-item.complete{color:#0f0;border-color:#0f0;}
-.mission-item .m-progress{color:#0cf;font-weight:700;min-width:24px;text-align:right;}
-
-/* 社交分享提示 */
-#share-hint{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:35;background:rgba(0,200,255,.15);border:1px solid rgba(0,200,255,.4);border-radius:20px;padding:8px 20px;font-size:12px;color:#0cf;display:none;text-align:center;pointer-events:auto;cursor:pointer;animation:sharePulse 2s ease-in-out infinite;}
-@keyframes sharePulse{0%,100%{box-shadow:0 0 10px rgba(0,200,255,.2)}50%{box-shadow:0 0 20px rgba(0,200,255,.5)}}
-
-/* 教程遮罩 */
-#tutorial{position:fixed;inset:0;z-index:25;background:rgba(0,0,0,.7);display:none;flex-direction:column;align-items:center;justify-content:center;}
-.tut-text{color:#fff;font-size:16px;text-align:center;line-height:2;padding:20px;}
-.tut-arrow{font-size:48px;animation:tutBounce .8s ease-in-out infinite;}
-@keyframes tutBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-15px)}}
-#tut-skip{position:absolute;top:20px;right:20px;color:rgba(255,255,255,.5);font-size:14px;padding:8px 16px;border:1px solid rgba(255,255,255,.3);border-radius:20px;cursor:pointer;pointer-events:auto;}
-
-/* 音效开关 */
-#btn-sfx{position:fixed;top:10px;right:70px;z-index:40;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:18px;cursor:pointer;pointer-events:auto;display:flex;align-items:center;justify-content:center;transition:background .3s;}
-#btn-sfx:hover{background:rgba(0,200,255,.2);}
-#btn-sfx.muted{opacity:.5;}
-
-/* 剧情对话框 */
-#story-box{position:fixed;top:-120px;left:50%;transform:translateX(-50%);z-index:45;background:rgba(5,5,30,.95);border:1px solid rgba(0,200,255,.4);border-radius:12px;padding:12px 20px;min-width:260px;max-width:340px;pointer-events:none;transition:top .5s cubic-bezier(.22,1,.36,1);box-shadow:0 0 30px rgba(0,150,255,.2);}
-#story-box.show{top:50px;}
-#story-box .story-speaker{font-size:11px;color:#0cf;font-weight:700;letter-spacing:2px;margin-bottom:4px;}
-#story-box .story-text{font-size:13px;color:rgba(255,255,255,.85);line-height:1.6;min-height:20px;}
-#story-box .story-text .char{opacity:0;animation:charIn .05s forwards;}
-@keyframes charIn{to{opacity:1;}}
-#story-box .story-arrow{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid rgba(0,200,255,.4);}
-
-/* 排行榜弹窗 */
-#leaderboard-overlay{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);display:none;flex-direction:column;align-items:center;justify-content:center;}
-.lb-panel{background:rgba(10,10,40,.95);border:1px solid rgba(0,200,255,.4);border-radius:20px;padding:24px;text-align:center;box-shadow:0 0 80px rgba(0,150,255,.25);min-width:300px;max-width:400px;max-height:80vh;overflow-y:auto;pointer-events:auto;animation:panelIn .3s ease-out;}
-.lb-title{font-size:22px;font-weight:900;color:#fff;letter-spacing:4px;margin-bottom:4px;}
-.lb-subtitle{font-size:11px;color:rgba(0,200,255,.6);letter-spacing:2px;margin-bottom:16px;}
-.lb-table{width:100%;border-collapse:collapse;}
-.lb-table th{font-size:10px;color:rgba(0,200,255,.7);padding:6px 4px;border-bottom:1px solid rgba(0,200,255,.2);text-align:center;font-weight:600;letter-spacing:1px;}
-.lb-table td{font-size:12px;color:rgba(255,255,255,.75);padding:7px 4px;text-align:center;border-bottom:1px solid rgba(255,255,255,.05);}
-.lb-table .lb-rank{font-weight:900;font-size:14px;}
-.lb-table .lb-rank-1{color:#FD0;text-shadow:0 0 8px rgba(255,221,0,.6);}
-.lb-table .lb-rank-2{color:#ccc;text-shadow:0 0 6px rgba(200,200,200,.4);}
-.lb-table .lb-rank-3{color:#d80;text-shadow:0 0 6px rgba(210,130,0,.4);}
-.lb-table .lb-current{background:rgba(0,200,255,.08);border-radius:4px;}
-.lb-table .lb-current td{color:#0ff;font-weight:700;}
-.lb-empty{color:rgba(255,255,255,.4);font-size:13px;padding:20px 0;}
-.lb-close{margin-top:16px;padding:10px 36px;font-size:13px;font-weight:600;color:#0cf;background:transparent;border:1px solid rgba(0,200,255,.3);border-radius:30px;cursor:pointer;pointer-events:auto;letter-spacing:2px;transition:all .2s;}
-.lb-close:hover{background:rgba(0,200,255,.1);border-color:rgba(0,200,255,.6);}
-#btn-leaderboard{margin-top:6px;padding:8px 28px;font-size:13px;font-weight:600;color:#FD0;background:transparent;border:1px solid rgba(255,221,0,.3);border-radius:30px;cursor:pointer;pointer-events:auto;letter-spacing:2px;transition:all .2s;}
-#btn-leaderboard:hover{background:rgba(255,221,0,.1);border-color:rgba(255,221,0,.6);}
-
-/* 结算面板内排行榜 */
-.go-lb{margin-top:16px;border-top:1px solid rgba(0,200,255,.15);padding-top:12px;}
-.go-lb-title{font-size:13px;color:#FD0;font-weight:700;letter-spacing:2px;margin-bottom:8px;}
-.go-lb-table{width:100%;border-collapse:collapse;}
-.go-lb-table th{font-size:9px;color:rgba(0,200,255,.5);padding:3px 2px;border-bottom:1px solid rgba(0,200,255,.1);text-align:center;}
-.go-lb-table td{font-size:10px;color:rgba(255,255,255,.6);padding:4px 2px;text-align:center;border-bottom:1px solid rgba(255,255,255,.03);}
-.go-lb-table .go-lb-rank{font-weight:700;font-size:11px;}
-.go-lb-table .go-rank-1{color:#FD0;}
-.go-lb-table .go-rank-2{color:#ccc;}
-.go-lb-table .go-rank-3{color:#d80;}
-.go-lb-table .go-lb-current td{color:#0ff;font-weight:700;background:rgba(0,200,255,.06);}
-
-/* 武器升级选择界面 */
-#weapon-upgrade{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.9);backdrop-filter:blur(12px);display:none;flex-direction:column;align-items:center;justify-content:center;}
-.wu-panel{background:rgba(10,10,40,.95);border:2px solid rgba(0,200,255,.5);border-radius:24px;padding:32px;text-align:center;box-shadow:0 0 100px rgba(0,150,255,.3);min-width:320px;max-width:420px;pointer-events:auto;animation:panelIn .4s cubic-bezier(.22,1,.36,1);}
-.wu-title{font-size:26px;font-weight:900;color:#0ff;letter-spacing:6px;margin-bottom:4px;text-shadow:0 0 20px rgba(0,200,255,.8);}
-.wu-sub{font-size:12px;color:rgba(0,200,255,.6);letter-spacing:3px;margin-bottom:24px;}
-.wu-options{display:flex;flex-direction:column;gap:12px;margin-bottom:20px;}
-.wu-option{padding:16px 20px;background:rgba(0,200,255,.08);border:2px solid rgba(0,200,255,.25);border-radius:16px;cursor:pointer;pointer-events:auto;transition:all .25s;text-align:left;position:relative;overflow:hidden;}
-.wu-option:hover{border-color:rgba(0,200,255,.8);background:rgba(0,200,255,.15);transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,200,255,.2);}
-.wu-option:active{transform:translateY(0);}
-.wu-option .wo-icon{font-size:32px;position:absolute;left:16px;top:50%;transform:translateY(-50%);}
-.wu-option .wo-content{margin-left:50px;}
-.wu-option .wo-name{font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;}
-.wu-option .wo-desc{font-size:11px;color:rgba(255,255,255,.6);line-height:1.5;}
-.wu-option .wo-type{font-size:10px;color:#0ff;margin-top:4px;letter-spacing:1px;}
-.wu-footer{font-size:11px;color:rgba(255,255,255,.3);letter-spacing:1px;}
-
-@media(max-width:480px){
-  .menu-title{font-size:30px;letter-spacing:5px}
-  .logo-icon{width:70px;height:70px}
-  .go-panel{padding:24px;margin:0 20px;}
-  #achievement-popup.show{top:10px;}
-  #story-box{min-width:220px;max-width:300px;padding:10px 16px;}
-  #story-box .story-text{font-size:12px;}
-  .wu-panel{padding:24px 20px;margin:0 16px;}
-  .wu-title{font-size:22px;}
-  .wu-option{padding:14px 16px;}
-  .wu-option .wo-icon{font-size:28px;}
-}
-</style>
-</head>
-<body>
-<canvas id="c"></canvas>
-
-<!-- 开始菜单 -->
-<div id="menu">
-  <div id="menu-bg"></div>
-  <div class="menu-glow"></div>
-  <div id="menu-inner">
-    <div class="logo-icon">
-      <div class="logo-pulse"></div>
-      <div class="logo-kite">
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <!-- 星际风筝主体 -->
-          <defs>
-            <linearGradient id="kiteGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:#0ff;stop-opacity:1"/>
-              <stop offset="50%" style="stop-color:#06f;stop-opacity:1"/>
-              <stop offset="100%" style="stop-color:#80f;stop-opacity:1"/>
-            </linearGradient>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="2" result="blur"/>
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-          </defs>
-          <!-- 风筝菱形主体 -->
-          <polygon points="50,10 80,50 50,85 20,50" fill="url(#kiteGrad)" opacity="0.8" filter="url(#glow)"/>
-          <!-- 中心能量核 -->
-          <circle cx="50" cy="50" r="8" fill="#fff" opacity="0.9">
-            <animate attributeName="r" values="8;12;8" dur="2s" repeatCount="indefinite"/>
-            <animate attributeName="opacity" values="0.9;0.5;0.9" dur="2s" repeatCount="indefinite"/>
-          </circle>
-          <!-- 十字能量线 -->
-          <line x1="50" y1="10" x2="50" y2="85" stroke="#0ff" stroke-width="1.5" opacity="0.6"/>
-          <line x1="20" y1="50" x2="80" y2="50" stroke="#0ff" stroke-width="1.5" opacity="0.6"/>
-          <!-- 四角光点 -->
-          <circle cx="50" cy="10" r="3" fill="#0ff" opacity="0.8">
-            <animate attributeName="opacity" values="0.8;0.2;0.8" dur="1.5s" repeatCount="indefinite"/>
-          </circle>
-          <circle cx="80" cy="50" r="3" fill="#06f" opacity="0.8">
-            <animate attributeName="opacity" values="0.2;0.8;0.2" dur="1.5s" repeatCount="indefinite"/>
-          </circle>
-          <circle cx="50" cy="85" r="3" fill="#80f" opacity="0.8">
-            <animate attributeName="opacity" values="0.8;0.2;0.8" dur="1.5s" repeatCount="indefinite"/>
-          </circle>
-          <circle cx="20" cy="50" r="3" fill="#f0f" opacity="0.8">
-            <animate attributeName="opacity" values="0.2;0.8;0.2" dur="1.5s" repeatCount="indefinite"/>
-          </circle>
-          <!-- 外圈轨道 -->
-          <ellipse cx="50" cy="50" rx="42" ry="42" fill="none" stroke="#0ff" stroke-width="0.5" opacity="0.3" stroke-dasharray="4 4">
-            <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="8s" repeatCount="indefinite"/>
-          </ellipse>
-        </svg>
-      </div>
-    </div>
-    <div class="menu-title">星际风筝传说</div>
-    <div class="menu-title-en">STAR KITE LEGEND</div>
-    <div class="menu-sub">操控风筝穿越星际<br>点击射击 · 滑动移动 · 收集道具</div>
-    <div id="skin-selector"></div>
-    <div class="diff-label">⚙️ 难度选择</div>
-    <div id="difficulty-selector"></div>
-    <button id="btn-start" onclick="startGame()">▶ 开始飞行</button>
-    <button id="btn-leaderboard" onclick="showLeaderboard()">🏆 排行榜</button>
-    <div class="menu-stats" id="menu-stats"></div>
-    <div class="menu-hint">触屏：拖拽移动 / 点击射击<br>键盘：← → 移动 / 空格射击 / B 炸弹</div>
-  </div>
-  <div class="menu-version" id="menu-version"></div>
-</div>
-
-<!-- 结算面板 -->
-<div id="gameover">
-  <div class="go-panel">
-    <div class="go-title" id="go-title">坠落了...</div>
-    <div class="go-sub" id="go-cause">被击中了</div>
-    <div class="go-stat"><span>最高高度</span><span id="go-height">0m</span></div>
-    <div class="go-stat"><span>总得分</span><span id="go-score">0</span></div>
-    <div class="go-stat"><span>击杀数</span><span id="go-kills">0</span></div>
-    <div class="go-stat"><span>最大连击</span><span id="go-combo">0</span></div>
-    <div class="go-coins">🪙 +<span id="go-coins">0</span></div>
-    <div id="go-newRecord" style="display:none;color:#0ff;font-weight:700;font-size:13px;animation:blink .5s infinite;margin-bottom:8px;">🏆 新纪录！</div>
-    <div id="go-share" style="display:none;margin-bottom:8px;"></div>
-    <div class="go-lb" id="go-lb" style="display:none;">
-      <div class="go-lb-title">🏆 排行榜 TOP 10</div>
-      <table class="go-lb-table"><thead><tr><th>#</th><th>分数</th><th>高度</th><th>击杀</th><th>日期</th></tr></thead>
-      <tbody id="go-lb-tbody"></tbody></table>
-    </div>
-    <button id="btn-retry" onclick="startGame()">🔄 再来一局</button>
-    <button id="btn-menu" onclick="backToMenu()">🏠 返回首页</button>
-  </div>
-</div>
-
-<!-- 成就弹窗 -->
-<div id="achievement-popup"><div class="ach-icon"></div><div class="ach-title"></div><div class="ach-desc"></div></div>
-
-<!-- 剧情对话框 -->
-<div id="story-box">
-  <div class="story-speaker"></div>
-  <div class="story-text"></div>
-  <div class="story-arrow"></div>
-</div>
-
-<!-- 排行榜弹窗 -->
-<div id="leaderboard-overlay" onclick="closeLeaderboard()">
-  <div class="lb-panel" onclick="event.stopPropagation()">
-    <div class="lb-title">🏆 排行榜</div>
-    <div class="lb-subtitle">TOP 10 — 星际风筝传说</div>
-    <table class="lb-table"><thead><tr><th>排名</th><th>分数</th><th>高度</th><th>击杀</th><th>日期</th></tr></thead>
-    <tbody id="lb-tbody"><tr><td colspan="5" class="lb-empty">暂无记录，快去飞行吧！</td></tr></tbody></table>
-    <button class="lb-close" onclick="closeLeaderboard()">关闭</button>
-  </div>
-</div>
-
-<!-- 教程 -->
-<div id="tutorial" onclick="closeTutorial()">
-  <div id="tut-skip" onclick="event.stopPropagation();closeTutorial();">跳过</div>
-  <div class="tut-text">🚀 星际风筝自动射击<br>👆 拖拽屏幕控制方向<br>💣 按 B 键释放炸弹<br>🌟 收集道具变强</div>
-  <div class="tut-arrow">🌌</div>
-</div>
-
-<!-- 武器升级选择面板 (v6.5.2: 之前漏了这个DOM元素导致卡死！) -->
-<div id="weapon-upgrade">
-  <div class="wu-panel">
-    <div class="wu-title">⚡ 武器升级</div>
-    <div class="wu-sub">选择一项强化（3选1）</div>
-    <div class="wu-options" id="wu-options"></div>
-    <div class="wu-footer">点击选择 · 游戏将自动继续</div>
-  </div>
-</div>
-
-<!-- 音效开关 -->
-<button id="btn-sfx" onclick="toggleSfx()" title="音效/BGM">🔊</button>
-
-<script>
 // ============================================================
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
@@ -1170,8 +880,6 @@ function queueStory(storyArray,callback){
 // 每帧调用：推进story播放（在update()末尾调用）
 function updateStorySystem(){
   if(!gameRunning) return; // 游戏暂停时story系统暂停
-  // v6.12: 整个story系统加try-catch — DOM操作出错不能拖垮update
-  try{
   const box=document.getElementById('story-box');
   if(!box) return;
   const spEl=box.querySelector('.story-speaker');
@@ -1217,18 +925,10 @@ function updateStorySystem(){
   else spEl.style.color='#ff0';
   txEl.textContent=next.text;
   box.classList.add('show');
-  } catch(storyErr){
-    console.error('[v6.12 Story] 异常(已隔离):', storyErr.message||storyErr);
-    // 出错时强制关闭story，防止卡死
-    storyActive=false; _storyCurrent=null;
-    try{const b=document.getElementById('story-box');if(b)b.classList.remove('show');}catch(_){}
-  }
 }
 
 function checkStoryTrigger(heightM){
   if(!gameRunning) return; // v6.8: 游戏暂停时不触发剧情
-  // v6.12: 整个trigger加try-catch
-  try{
   const milestones=[100,500,1000,1500,2000,3000,4000,5000];
   for(const m of milestones){
     if(heightM>=m&&!storyTriggered.has('height'+m)){
@@ -1240,7 +940,6 @@ function checkStoryTrigger(heightM){
       }
     }
   }
-  }catch(triggerErr){console.warn('[v6.12 StoryTrigger] err:',triggerErr);}
 }
 function addScorePopup(x,y,text,color='#fff',size=16){
   // v6.4: 预计算rgba字符串，避免每帧parseColor
@@ -2955,8 +2654,7 @@ function update(now){
               const killZone=getZone(heightM);
               const killPool=STORY_DATA.bossKillByTheme[killZone.theme];
               const killStory=killPool&&killPool.length>0?killPool[Math.floor(Math.random()*killPool.length)]:STORY_DATA.bossKill;
-              // v6.12: queueStory加保护
-              try{queueStory(killStory);}catch(qe){console.warn('[v6.12] bossKill story err:',qe);}
+              queueStory(killStory);
             }
             enemies.splice(ei,1);
           }
@@ -2996,12 +2694,10 @@ function update(now){
             bossKillAnnounce={active:true,timer:2,text:bossKillTexts};
             // Boss击杀剧情 — 按区域选专属台词
             setTimeout(()=>{
-              try{
-                const killZone2=getZone(heightM);
-                const killPool2=STORY_DATA.bossKillByTheme[killZone2.theme];
-                const killStory2=killPool2&&killPool2.length>0?killPool2[Math.floor(Math.random()*killPool2.length)]:STORY_DATA.bossKill;
-                queueStory(killStory2);
-              }catch(qe2){console.warn('[v6.12] bossKill story(延迟) err:',qe2);}
+              const killZone2=getZone(heightM);
+              const killPool2=STORY_DATA.bossKillByTheme[killZone2.theme];
+              const killStory2=killPool2&&killPool2.length>0?killPool2[Math.floor(Math.random()*killPool2.length)]:STORY_DATA.bossKill;
+              queueStory(killStory2);
             },2200);
             spawnParticles(e.x,e.y,50,'#ff0',200,.8,4);spawnParticles(e.x,e.y,35,'#f44',160,.6,3);
             spawnParticles(e.x,e.y,20,'#fff',120,.5,2);
@@ -3111,35 +2807,25 @@ function update(now){
     // Boss战硬封顶：超过120颗敌弹时暂停发射+技能
     const ebHardCap=bossFight?90:(_adaptMaxEB*.85);
     if(e.shootCooldown<=0&&e.y>10&&e.y<H*.7){
-      // v6.12: enemyShoot加try-catch — 射击逻辑出错不能拖垮整个update
-      try{
-        if(enemyBullets.length<ebHardCap) enemyShoot(e);
-        e.shootCooldown=e.shootTimer*(.8+Math.random()*.4)*diffCfg.shootRateMult;
-      }catch(shootErr){
-        console.error('[v6.12 enemyShoot] 异常(已隔离):', shootErr.message||shootErr);
-        e.shootCooldown=1; // 出错后冷却1秒再试
-      }
+      if(enemyBullets.length<ebHardCap) enemyShoot(e);
+      e.shootCooldown=e.shootTimer*(.8+Math.random()*.4)*diffCfg.shootRateMult;
     }
     // Boss技能系统
     if(e.type==='boss'&&e.y>10){
       if(e.skillTimer>0) e.skillTimer-=dt;
       if(e.skillTimer<=0&&enemyBullets.length<ebHardCap*.75){
-        // v6.12: Boss技能fn(e)加try-catch — 技能函数出错不能拖垮整个update
-        try{
-          const skills=BOSS_SKILLS[e.bossType]||BOSS_SKILLS['corporate'];
-          if(skills&&skills.length>0){
-            const totalW=skills.reduce((s,sk)=>s+sk.weight,0);
-            let r=Math.random()*totalW,wAcc=0,picked=skills[0];
-            for(let si=0;si<skills.length;si++){wAcc+=skills[si].weight;if(r<=wAcc){picked=skills[si];break;}}
-            picked.fn(e);
-            e.skillTimer=picked.cooldown*(.7+Math.random()*.6);
-            if(picked.name&&e.y<H*.5){
-              particles.push({x:e.x,y:e.y-30,vx:0,vy:-40,life:.8,size:12,color:'#ff0',text:picked.name,alive:true,type:'text'});
-            }
+        const skills=BOSS_SKILLS[e.bossType]||BOSS_SKILLS['corporate'];
+        if(skills&&skills.length>0){
+          // 权重随机选技能
+          const totalW=skills.reduce((s,sk)=>s+sk.weight,0);
+          let r=Math.random()*totalW,wAcc=0,picked=skills[0];
+          for(let si=0;si<skills.length;si++){wAcc+=skills[si].weight;if(r<=wAcc){picked=skills[si];break;}}
+          picked.fn(e);
+          e.skillTimer=picked.cooldown*(.7+Math.random()*.6);
+          // 技能名提示
+          if(picked.name&&e.y<H*.5){
+            particles.push({x:e.x,y:e.y-30,vx:0,vy:-40,life:.8,size:12,color:'#ff0',text:picked.name,alive:true,type:'text'});
           }
-        }catch(skillErr){
-          console.error('[v6.12 BossSkill] 异常(已隔离):', skillErr.message||skillErr);
-          e.skillTimer=2; // 出错后冷却2秒再试
         }
       }
     }
@@ -3592,95 +3278,75 @@ function draw(offset){
   ctx.textAlign='left';
 }
 
-// ==================== 循环 v6.12 ====================
-// 【核心改进】看门狗外置到try-catch外面！
-// v6.10的致命缺陷: update()抛异常时catch跳过了看门狗检测 → 画面永久冻结
-// v6.12: 看门狗在所有try-catch之外，无论update/draw是否崩溃都能检测冻结
+// ==================== 循环 ====================
 function gameLoop(now){
-  // ── 阶段1: 始终执行的dt安全计算（不受任何try-catch影响） ──
-  if(!lastTime) lastTime=now;
-
-  // ── 阶段2: update() — 独立try-catch，出错不影响后续看门狗和draw ──
   try {
+    if(!lastTime) lastTime=now;
     if(gameRunning||deathSlowMo>0) {
       update(now);
-    }
-  } catch(e) {
-    console.error('[v6.12 update] 异常(已隔离):', e.message||e);
-    // 紧急恢复关键状态，防止级联崩溃
-    try { if(!isFinite(dt)) dt=0.016; if(!isFinite(lastTime)) lastTime=performance.now(); } catch(_) {}
-  }
-
-  // ════════════════════════════════════════
-  //   🔒 看门狗检测（在ALL try-catch外面！）
-  //   无论update是否异常，这里都会执行
-  // ════════════════════════════════════════
-  if(gameRunning || (!player.alive && deathSlowMo>0)) {
-    // v6.12: 增强指纹 — 加入frameCount防止"变化但相同"误判
-    const bossHp=bossFight?Math.floor(bossFight.hp):0;
-    const px=player.alive?Math.floor(player.x*10+player.y*10):0;
-    const fp=enemies.length*1000+enemyBullets.length*100+playerBullets.length*10+Math.floor(score)+bossHp+(frameCount%300)+px;
-    if(fp===_lastWatchdogFingerprint){
-      _watchdogTimer++;
-    } else {
-      _watchdogTimer=0; _lastWatchdogFingerprint=fp;
-    }
-    // v6.12: 静止恢复（游戏运行中但画面不变）
-    if(_watchdogTimer>WATCHDOG_MAX && gameRunning){
-      _watchdogRecoveryCount++;
-      console.warn(`[Watchdog v6.12] #${_watchdogRecoveryCount} 静止恢复! e=${enemies.length} eb=${enemyBullets.length} wu=${weaponUpgradeActive} story=${storyActive}`);
-      // 强制关闭story
-      if(storyActive){
-        storyActive=false;_storyCurrent=null;_storyPending=[];
-        try{const b=document.getElementById('story-box');if(b)b.classList.remove('show');}catch(_){}
+      // v6.7: 帧指纹（加入bossHp）检测画面是否真的在变化
+      const bossHp=bossFight?Math.floor(bossFight.hp):0;
+      const fp=enemies.length*1000+enemyBullets.length*100+playerBullets.length*10+Math.floor(score)+bossHp;
+      if(fp===_lastWatchdogFingerprint){
+        _watchdogTimer++;
+      } else {
+        _watchdogTimer=0; _lastWatchdogFingerprint=fp;
       }
-      enemies.forEach(e=>{e._phaseChanging=false;e._phaseChangeTimer=0;e.invulnerable=0;});
-      if(enemyBullets.length>150) enemyBullets.splice(0,enemyBullets.length-150);
-      if(playerBullets.length>80) playerBullets.splice(0,playerBullets.length-80);
-      _watchdogTimer=0;
-      waveTimer=0.1;
-      // 强制恢复dt
-      dt=0.016; lastTime=performance.now();
-      if(weaponUpgradeActive && _wuTimeout===null){
+      // v6.10: 画面静止 → 强制恢复（安全优先）
+      // 取消storyActive豁免 — 正常story播放时画面会变化，指纹不会相同
+      // 如果dt变成NaN导致画面静止+story卡住，看门狗必须能触发
+      if(_watchdogTimer>WATCHDOG_MAX && gameRunning){
+        _watchdogRecoveryCount++;
+        console.warn(`[Watchdog v6.10] #${_watchdogRecoveryCount} 静止恢复! e=${enemies.length} eb=${enemyBullets.length} wuActive=${weaponUpgradeActive} storyActive=${storyActive}`);
+        // 如果story卡住了，强制关闭
+        if(storyActive){
+          console.warn('[Watchdog] story系统卡住，强制关闭');
+          storyActive=false;_storyCurrent=null;_storyPending=[];
+          try{const b=document.getElementById('story-box');if(b)b.classList.remove('show');}catch(_){}
+        }
+        enemies.forEach(e=>{e._phaseChanging=false;e._phaseChangeTimer=0;e.invulnerable=0;});
+        if(enemyBullets.length>150) enemyBullets.splice(0,enemyBullets.length-150);
+        _watchdogTimer=0;
+        waveTimer=0.1;
+        // 如果武器升级面板超过60帧没关（理论上有15s超时不可能），强制关闭
+        if(weaponUpgradeActive && _wuTimeout===null){
+          console.warn('[Watchdog] 武器升级面板异常，强制关闭');
+          _closeWeaponUpgrade(null);
+        }
+      }
+    } else {
+      _watchdogTimer++;
+      // v6.10: gameRunning=false时冻结恢复
+      // 取消storyActive豁免 — dt=NaN时gameRunning可能还是true（如果异常在update之后发生）
+      // 或者如果gameRunning被意外设为false，但story卡住了
+      const goEl=document.getElementById('gameover');
+      const menuEl=document.getElementById('menu');
+      const isNormalStop=(goEl&&goEl.style.display.match(/flex|block/))
+                     ||(menuEl&&menuEl.style.display.match(/flex|block/));
+      if(_watchdogTimer>WATCHDOG_MAX && !isNormalStop){
+        _watchdogRecoveryCount++;
+        console.warn(`[Watchdog v6.10] #${_watchdogRecoveryCount} 冻结恢复! running=${gameRunning}`);
+        gameRunning=true;
         weaponUpgradeActive=false;
+        if(_wuTimeout){clearTimeout(_wuTimeout);_wuTimeout=null;}
         const wuEl=document.getElementById('weapon-upgrade');
         if(wuEl) wuEl.style.display='none';
+        // 强制关闭story
+        storyActive=false;_storyCurrent=null;_storyPending=[];
+        try{const b=document.getElementById('story-box');if(b)b.classList.remove('show');}catch(_){}
+        _watchdogTimer=0;
+        enemies.forEach(e=>{e._phaseChanging=false;e._phaseChangeTimer=0;e.invulnerable=0;});
+        if(enemyBullets.length>150) enemyBullets.splice(0,enemyBullets.length-150);
+        waveTimer=0.1;
       }
     }
-  } else {
-    // gameRunning=false时的冻结检测
-    _watchdogTimer++;
-    const goEl=document.getElementById('gameover');
-    const menuEl=document.getElementById('menu');
-    const isNormalStop=(goEl&&goEl.style.display.match(/flex|block/))
-                   ||(menuEl&&menuEl.style.display.match(/flex|block/));
-    if(_watchdogTimer>WATCHDOG_MAX && !isNormalStop){
-      _watchdogRecoveryCount++;
-      console.warn(`[Watchdog v6.12] #${_watchdogRecoveryCount} 冻结恢复! running=${gameRunning} alive=${player.alive}`);
-      gameRunning=true;
-      weaponUpgradeActive=false;
-      if(_wuTimeout){clearTimeout(_wuTimeout);_wuTimeout=null;}
-      const wuEl=document.getElementById('weapon-upgrade');
-      if(wuEl) wuEl.style.display='none';
-      storyActive=false;_storyCurrent=null;_storyPending=[];
-      try{const b=document.getElementById('story-box');if(b)b.classList.remove('show');}catch(_){}
-      _watchdogTimer=0;
-      dt=0.016; lastTime=performance.now();
-      enemies.forEach(e=>{e._phaseChanging=false;e._phaseChangeTimer=0;e.invulnerable=0;});
-      if(enemyBullets.length>150) enemyBullets.splice(0,enemyBullets.length-150);
-      waveTimer=0.1;
-    }
-  }
-
-  // ── 阶段4: draw() — 独立try-catch ──
-  try {
     draw(heightM);
   } catch(e) {
-    console.error('[v6.12 draw] 异常(已隔离):', e.message||e);
-    // draw出错时清空canvas防止残影
-    try { ctx.clearRect(0,0,W,H); } catch(_) {}
+    console.error('Game loop error:', e);
+    // v6.5.3: 严重错误时尝试恢复，不要让游戏静默死亡
+    if(!gameRunning && !player.alive) return; // 正常gameOver状态
+    if(!gameRunning) { console.warn('[GameLoop] 错误导致暂停，自动恢复'); gameRunning=true; weaponUpgradeActive=false; }
   }
-
   requestAnimationFrame(gameLoop);
 }
 
@@ -4002,6 +3668,3 @@ function showWeaponUpgrade(){
   }
 }
 
-</script>
-</body>
-</html>

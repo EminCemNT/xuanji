@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kite Legend - Cover Generator</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+canvas { border: 1px solid #333; image-rendering: pixelated; }
+.btn { margin-top: 20px; padding: 12px 32px; font-size: 16px; background: #06f; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+.btn:hover { background: #08f; }
+</style>
+</head>
+<body>
+<canvas id="cv" width="630" height="500"></canvas>
+<button class="btn" onclick="downloadCover()">📥 Download Cover (630×500)</button>
+<script>
+const canvas = document.getElementById('cv');
+const ctx = canvas.getContext('2d');
+
+// Background
+const bg = ctx.createRadialGradient(315, 250, 0, 315, 250, 400);
+bg.addColorStop(0, '#0a0a3a');
+bg.addColorStop(0.5, '#050520');
+bg.addColorStop(1, '#000008');
+ctx.fillStyle = bg;
+ctx.fillRect(0, 0, 630, 500);
+
+// Stars
+for (let i = 0; i < 120; i++) {
+  const x = Math.random() * 630;
+  const y = Math.random() * 500;
+  const r = Math.random() * 1.5 + 0.3;
+  const a = Math.random() * 0.7 + 0.3;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(200,220,255,${a})`;
+  ctx.fill();
+}
+
+// Nebula effects
+const nebula = [
+  { x: 100, y: 150, r: 120, c: 'rgba(0,100,255,0.08)' },
+  { x: 500, y: 100, r: 100, c: 'rgba(180,0,255,0.06)' },
+  { x: 350, y: 400, r: 150, c: 'rgba(0,200,200,0.05)' },
+];
+nebula.forEach(n => {
+  const ng = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r);
+  ng.addColorStop(0, n.c);
+  ng.addColorStop(1, 'transparent');
+  ctx.fillStyle = ng;
+  ctx.fillRect(0, 0, 630, 500);
+});
+
+// Player kite (center)
+const pkX = 315, pkY = 380;
+// Body
+ctx.beginPath();
+ctx.moveTo(pkX, pkY - 25);
+ctx.lineTo(pkX - 18, pkY + 20);
+ctx.lineTo(pkX, pkY + 8);
+ctx.lineTo(pkX + 18, pkY + 20);
+ctx.closePath();
+ctx.fillStyle = '#06f';
+ctx.fill();
+ctx.strokeStyle = '#0ff';
+ctx.lineWidth = 1.5;
+ctx.stroke();
+// Wings
+ctx.beginPath();
+ctx.moveTo(pkX - 18, pkY + 5);
+ctx.lineTo(pkX - 35, pkY + 15);
+ctx.lineTo(pkX - 15, pkY + 18);
+ctx.closePath();
+ctx.fillStyle = 'rgba(0,150,255,0.5)';
+ctx.fill();
+ctx.beginPath();
+ctx.moveTo(pkX + 18, pkY + 5);
+ctx.lineTo(pkX + 35, pkY + 15);
+ctx.lineTo(pkX + 15, pkY + 18);
+ctx.closePath();
+ctx.fillStyle = 'rgba(0,150,255,0.5)';
+ctx.fill();
+// Glow
+const pg = ctx.createRadialGradient(pkX, pkY, 0, pkX, pkY, 40);
+pg.addColorStop(0, 'rgba(0,150,255,0.3)');
+pg.addColorStop(1, 'transparent');
+ctx.fillStyle = pg;
+ctx.fillRect(pkX - 40, pkY - 40, 80, 80);
+
+// Enemy (top right)
+const eX = 480, eY = 120;
+ctx.beginPath();
+ctx.moveTo(eX, eY - 18);
+ctx.lineTo(eX - 14, eY + 14);
+ctx.lineTo(eX + 14, eY + 14);
+ctx.closePath();
+ctx.fillStyle = '#c00';
+ctx.fill();
+ctx.strokeStyle = '#f44';
+ctx.lineWidth = 1.5;
+ctx.stroke();
+// Enemy glow
+const eg = ctx.createRadialGradient(eX, eY, 0, eX, eY, 30);
+eg.addColorStop(0, 'rgba(255,0,0,0.2)');
+eg.addColorStop(1, 'transparent');
+ctx.fillStyle = eg;
+ctx.fillRect(eX - 30, eY - 30, 60, 60);
+
+// Bullets
+// Player bullets (cyan)
+for (let i = 0; i < 6; i++) {
+  const bx = pkX - 30 + i * 12;
+  const by = pkY - 40 - i * 18;
+  ctx.beginPath();
+  ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#0ff';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(bx, by, 6, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,255,255,0.15)';
+  ctx.fill();
+}
+// Enemy bullets (red/orange)
+const ebData = [
+  { x: eX - 20, y: eY + 20 },
+  { x: eX - 5, y: eY + 28 },
+  { x: eX + 10, y: eY + 22 },
+  { x: eX + 25, y: eY + 30 },
+];
+ebData.forEach(b => {
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+  ctx.fillStyle = '#f84';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, 7, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,130,0,0.15)';
+  ctx.fill();
+});
+
+// Particles
+const particles = [
+  { x: pkX - 10, y: pkY + 22, c: '#0ff' },
+  { x: pkX + 10, y: pkY + 22, c: '#0ff' },
+  { x: eX, y: eY - 20, c: '#ff0' },
+  { x: 200, y: 250, c: '#f0f' },
+  { x: 420, y: 320, c: '#0f0' },
+];
+particles.forEach(p => {
+  for (let i = 0; i < 4; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const d = Math.random() * 15 + 3;
+    ctx.beginPath();
+    ctx.arc(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 1.2, 0, Math.PI * 2);
+    ctx.fillStyle = p.c;
+    ctx.globalAlpha = 0.6;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+});
+
+// Title
+ctx.textAlign = 'center';
+// Shadow
+ctx.font = 'bold 48px sans-serif';
+ctx.fillStyle = 'rgba(0,100,255,0.4)';
+ctx.fillText('星际风筝传说', 317, 82);
+// Main
+ctx.fillStyle = '#fff';
+ctx.fillText('星际风筝传说', 315, 80);
+// Gradient overlay on text - use stroke approach
+const tg = ctx.createLinearGradient(115, 50, 515, 100);
+tg.addColorStop(0, '#fff');
+tg.addColorStop(0.5, '#0cf');
+tg.addColorStop(1, '#fff');
+ctx.fillStyle = tg;
+ctx.globalCompositeOperation = 'source-atop';
+ctx.fillText('星际风筝传说', 315, 80);
+ctx.globalCompositeOperation = 'source-over';
+
+// Subtitle
+ctx.font = 'bold 18px sans-serif';
+ctx.fillStyle = '#0ff';
+ctx.fillText('Kite Legend — Interstellar', 315, 112);
+
+// Decorative line
+ctx.beginPath();
+ctx.moveTo(165, 125);
+ctx.lineTo(465, 125);
+ctx.strokeStyle = 'rgba(0,200,255,0.4)';
+ctx.lineWidth = 1;
+ctx.stroke();
+
+// Feature badges
+const badges = [
+  { text: '🎮 SHMUP', x: 100, c: '#0ff' },
+  { text: '👾 BOSS', x: 240, c: '#f84' },
+  { text: '⚡ ROGUELITE', x: 390, c: '#ff0' },
+  { text: '🎨 VISUAL', x: 530, c: '#0f0' },
+];
+ctx.font = 'bold 11px monospace';
+badges.forEach(b => {
+  ctx.beginPath();
+  ctx.roundRect(b.x - 38, 140, 76, 18, 4);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fill();
+  ctx.strokeStyle = b.c + '60';
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+  ctx.fillStyle = b.c;
+  ctx.textAlign = 'center';
+  ctx.fillText(b.text, b.x, 152);
+});
+
+// Bottom info
+ctx.font = '12px sans-serif';
+ctx.fillStyle = 'rgba(255,255,255,0.4)';
+ctx.textAlign = 'center';
+ctx.fillText('Pure HTML5 Canvas · No Download Required', 315, 470);
+
+// Version badge
+ctx.font = 'bold 10px monospace';
+ctx.fillStyle = '#06f';
+ctx.textAlign = 'right';
+ctx.fillText('v6.5', 615, 490);
+
+function downloadCover() {
+  const link = document.createElement('a');
+  link.download = 'kite-legend-cover-630x500.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+</script>
+</body>
+</html>
