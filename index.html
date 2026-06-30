@@ -293,9 +293,9 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v6.8';
-// v6.7: 终极卡死修复 — 看门狗1s+Boss阶段零副作用+双重静止检测+敌弹清理
-// v6.6.1: 多重防护 — 阶段无敌缩至0.5s+帧僵死检测+全路径safeGuard
+const GAME_VERSION = 'v6.9';
+// v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
+// v6.8: story帧驱动重写+武器升级去重
 // v6.5.2: 彻底修复Boss阶段卡死 - try-catch保护 + 清理残留setTimeout + 阶段转换时清理过量粒子
 // + P1: Boss阶段化系统 — 血量75%/50%/25%时自动变相（攻击模式+颜色+护盾）
 // + P2: 武器升级选择界面 — 收集武器道具时弹出3选1 Roguelite界面
@@ -3545,30 +3545,38 @@ function gameLoop(now){
       } else {
         _watchdogTimer=0; _lastWatchdogFingerprint=fp;
       }
-      // v6.7: 画面静止 → 强制恢复（安全优先）
+      // v6.9: 画面静止 → 强制恢复（安全优先）
+      // 注意: weaponUpgradeActive期间不计入静止（玩家无敌，故事正常运行）
       if(_watchdogTimer>WATCHDOG_MAX && gameRunning && !storyActive){
         _watchdogRecoveryCount++;
-        console.warn(`[Watchdog v6.7] #${_watchdogRecoveryCount} 静止恢复! e=${enemies.length} eb=${enemyBullets.length}`);
+        console.warn(`[Watchdog v6.9] #${_watchdogRecoveryCount} 静止恢复! e=${enemies.length} eb=${enemyBullets.length} wuActive=${weaponUpgradeActive}`);
         enemies.forEach(e=>{e._phaseChanging=false;e._phaseChangeTimer=0;e.invulnerable=0;});
         if(enemyBullets.length>150) enemyBullets.splice(0,enemyBullets.length-150);
         _watchdogTimer=0;
         waveTimer=0.1;
+        // 如果武器升级面板超过60帧没关（理论上有15s超时不可能），强制关闭
+        if(weaponUpgradeActive && _wuTimeout===null){
+          console.warn('[Watchdog] 武器升级面板异常，强制关闭');
+          _closeWeaponUpgrade(null);
+        }
       }
     } else {
       _watchdogTimer++;
-      // v6.7: 冻结恢复 —— 统一判断
+      // v6.9: gameRunning=false时冻结恢复
+      // weapon-upgrade不再暂停游戏，所以只检查gameover和menu
       const goEl=document.getElementById('gameover');
       const menuEl=document.getElementById('menu');
-      const wuEl=document.getElementById('weapon-upgrade');
       const isNormalStop=(goEl&&goEl.style.display.match(/flex|block/))
                      ||(menuEl&&menuEl.style.display.match(/flex|block/))
-                     ||(wuEl&&wuEl.style.display.match(/flex|block/))
                      ||storyActive;
       if(_watchdogTimer>WATCHDOG_MAX && !isNormalStop){
         _watchdogRecoveryCount++;
-        console.warn(`[Watchdog v6.7] #${_watchdogRecoveryCount} 冻结恢复! running=${gameRunning}`);
+        console.warn(`[Watchdog v6.9] #${_watchdogRecoveryCount} 冻结恢复! running=${gameRunning}`);
         gameRunning=true;
         weaponUpgradeActive=false;
+        if(_wuTimeout){clearTimeout(_wuTimeout);_wuTimeout=null;}
+        const wuEl=document.getElementById('weapon-upgrade');
+        if(wuEl) wuEl.style.display='none';
         _watchdogTimer=0;
         enemies.forEach(e=>{e._phaseChanging=false;e._phaseChangeTimer=0;e.invulnerable=0;});
         if(enemyBullets.length>150) enemyBullets.splice(0,enemyBullets.length-150);
@@ -3661,6 +3669,7 @@ function startGame(){
   // v6.5.2: 重置遗漏的状态变量
   bossKills=0;grazeCount=0;starStormGauge=0;starStormActive=false;starStormTimer=0;
   drones=[];weaponUpgradeActive=false;
+  if(_wuTimeout){clearTimeout(_wuTimeout);_wuTimeout=null;} // v6.9: 清除武器升级超时
   const wuPanel=document.getElementById('weapon-upgrade');
   if(wuPanel) wuPanel.style.display='none'; // 确保面板隐藏
   bossKillAnnounce={active:false,timer:0,text:''};
@@ -3706,6 +3715,7 @@ function closeTutorial(){
 function backToMenu(){
   gameRunning=false;deathSlowMo=0;
   weaponUpgradeActive=false;
+  if(_wuTimeout){clearTimeout(_wuTimeout);_wuTimeout=null;} // v6.9: 清除武器升级超时
   const wuPanel=document.getElementById('weapon-upgrade');
   if(wuPanel) wuPanel.style.display='none';
   // v6.8: 清理story系统
@@ -3798,15 +3808,33 @@ const WEAPON_UPGRADE_OPTIONS=[
   }}
 ];
 
+// v6.9: 武器升级超时计时器（绝对安全保险）
+let _wuTimeout=null;
+
+function _closeWeaponUpgrade(chosenOpt){
+  // 清超时
+  if(_wuTimeout){clearTimeout(_wuTimeout);_wuTimeout=null;}
+  const panel=document.getElementById('weapon-upgrade');
+  if(panel) panel.style.display='none';
+  weaponUpgradeActive=false;
+  // 恢复玩家无敌状态
+  if(player) player.invincible=Math.max(player.invincible||0,0);
+  // 执行选项动作
+  if(chosenOpt){
+    try{chosenOpt.action();}catch(e){console.error('[WeaponUpgrade] action出错:',e);}
+  }
+  console.log('[WeaponUpgrade] 关闭，gameRunning=',gameRunning);
+}
+
 function showWeaponUpgrade(){
   if(weaponUpgradeActive) return;
-  
-  // v6.5.2: 先检查DOM元素是否存在，不存在则直接升级武器不弹面板
+
+  // 先检查DOM元素是否存在
   const panel=document.getElementById('weapon-upgrade');
   const optionsEl=document.getElementById('wu-options');
   if(!panel||!optionsEl){
-    console.warn('[WeaponUpgrade] DOM元素不存在，直接升级武器');
-    // fallback: 直接升级武器等级
+    // fallback: 直接升级武器等级，游戏不暂停
+    console.warn('[WeaponUpgrade] DOM不存在，直接升级');
     const wt=WEAPON_TYPES[weaponType];
     if(wt&&weaponLevel<wt.levels.length){
       weaponLevel++;
@@ -3815,45 +3843,44 @@ function showWeaponUpgrade(){
       bombCount=Math.min(9,bombCount+1);
       addScorePopup(player.x,player.y-20,'💣 炸弹+1','#f80',18);
     }
-    return; // 不暂停游戏，不设置weaponUpgradeActive
+    return;
   }
-  
+
   weaponUpgradeActive=true;
-  // v6.5.3: gameRunning=false 移入try内部，确保任何异常都不会导致永久暂停
-  
+  // v6.9: 【核心改动】游戏继续运行！不再设 gameRunning=false
+  // 武器升级期间玩家进入无敌模式（被Boss弹打不死），游戏照常运行
+  if(player) player.invincible=Math.max(player.invincible||0, 12); // 12秒无敌
+
   try{
-    gameRunning=false; // 暂停游戏（在try内部，异常时catch能恢复）
     optionsEl.innerHTML='';
-    
-    // v6.8: 随机生成3个选项，严格去重（每种type只选一次）
+
+    // v6.9: 严格去重选项生成
     const options=[];
     const usedTypes=new Set();
-    // 按权重打乱WEAPON_UPGRADE_OPTIONS顺序，确保不重复
-    const available=WEAPON_UPGRADE_OPTIONS.filter(o=>!usedTypes.has(o.type));
     const shuffled=[...WEAPON_UPGRADE_OPTIONS].sort(()=>Math.random()-.5);
     for(const opt of shuffled){
       if(options.length>=3) break;
-      if(usedTypes.has(opt.type)) continue; // 严格去重：同type只选一次
+      if(usedTypes.has(opt.type)) continue;
       const cfg=opt.getCfg();
       if(cfg){
         options.push(cfg);
         usedTypes.add(opt.type);
       }
     }
-    
-    // v6.5.2: 如果没有生成任何选项，fallback直接升级
+
+    // 无可用选项：直接升级，不弹面板
     if(options.length===0){
       console.warn('[WeaponUpgrade] 无可用选项，直接升级');
+      weaponUpgradeActive=false;
+      if(player) player.invincible=0;
       const wt=WEAPON_TYPES[weaponType];
       if(wt&&weaponLevel<wt.levels.length) weaponLevel++;
       else bombCount=Math.min(9,bombCount+1);
-      weaponUpgradeActive=false;
-      gameRunning=true;
       return;
     }
-    
+
     // 渲染选项
-    options.forEach(opt=>{
+    options.forEach((opt,idx)=>{
       const div=document.createElement('div');
       div.className='wu-option';
       div.innerHTML=`
@@ -3863,21 +3890,23 @@ function showWeaponUpgrade(){
           <div class="wo-desc">${opt.desc}</div>
         </div>
       `;
-      div.onclick=()=>{
-        try{opt.action();}catch(e){console.error('[WeaponUpgrade] action出错:',e);}
-        panel.style.display='none';
-        weaponUpgradeActive=false;
-        gameRunning=true; // 继续游戏
-      };
+      div.onclick=()=>_closeWeaponUpgrade(opt);
       optionsEl.appendChild(div);
     });
-    
+
     panel.style.display='flex';
+
+    // v6.9: 15秒超时保险 —— 无论如何都会自动关闭，绝不卡死
+    if(_wuTimeout) clearTimeout(_wuTimeout);
+    _wuTimeout=setTimeout(()=>{
+      console.warn('[WeaponUpgrade] 15秒超时，自动选第1项');
+      _closeWeaponUpgrade(options[0]);
+    }, 15000);
+
   }catch(e){
-    // v6.5.3: 任何出错都恢复游戏运行，绝不卡死
     console.error('[WeaponUpgrade] 渲染出错:',e);
     weaponUpgradeActive=false;
-    gameRunning=true;
+    if(player) player.invincible=0;
     try{if(panel)panel.style.display='none';}catch(_){}
   }
 }
