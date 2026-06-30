@@ -293,7 +293,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v6.7';
+const GAME_VERSION = 'v6.8';
 // v6.7: 终极卡死修复 — 看门狗1s+Boss阶段零副作用+双重静止检测+敌弹清理
 // v6.6.1: 多重防护 — 阶段无敌缩至0.5s+帧僵死检测+全路径safeGuard
 // v6.5.2: 彻底修复Boss阶段卡死 - try-catch保护 + 清理残留setTimeout + 阶段转换时清理过量粒子
@@ -302,7 +302,7 @@ const GAME_VERSION = 'v6.7';
 // + Boss每个阶段有独特的弹幕模式和视觉效果
 // + 武器升级可选：升级当前武器/切换武器类型/获得特殊能力
 // 性能优化：Boss阶段转换时添加无敌帧，避免玩家被秒杀
-const BUILD_DATE = '2026-06-29';
+const BUILD_DATE = '2026-06-30';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 canvas.style.imageRendering = 'auto';
@@ -1139,50 +1139,78 @@ let storyCharIndex=0;    // 当前打字位置
 let storyFullText='';    // 完整文本
 let storyTriggered=new Set(); // 已触发的剧情
 
+// v6.8: story系统完全重写 — 帧驱动，不用setTimeout，不阻塞游戏
+// 旧版用纯setTimeout堆叠，暂停期间仍触发，是卡死的根本原因之一
+let _storyPending=[];   // 待播放队列 [{speaker,text,duration,waitFrames}]
+let _storyCurrent=null; // 当前正在播放的story条目
+let _storyFrameTimer=0; // 帧计时器（替代setTimeout）
+
 function showStory(speaker,text,duration=3){
-  const box=document.getElementById('story-box');
-  const spEl=box.querySelector('.story-speaker');
-  const txEl=box.querySelector('.story-text');
-  spEl.textContent=speaker;
-  // 根据说话人设置颜色
-  if(speaker==='任务指挥中心') spEl.style.color='#0cf';
-  else if(speaker==='Boss') spEl.style.color='#f44';
-  else spEl.style.color='#ff0';
-  // 打字机效果
-  txEl.textContent='';
-  storyFullText=text;
-  storyCharIndex=0;
-  storyTyping=true;
-  box.classList.add('show');
-  // 逐字显示
-  function typeChar(){
-    if(storyCharIndex<storyFullText.length){
-      txEl.textContent=storyFullText.slice(0,storyCharIndex+1);
-      storyCharIndex++;
-      setTimeout(typeChar,40);
-    } else {
-      storyTyping=false;
-      // 自动关闭
-      setTimeout(()=>{box.classList.remove('show');},(duration-.5)*1000);
-    }
-  }
-  typeChar();
+  // v6.8: 不再直接显示，改为加入帧队列
+  _storyPending.push({speaker,text,duration,waitFrames:0});
 }
 
 function queueStory(storyArray,callback){
-  // storyArray: [{speaker,text,delay}]
-  let cumDelay=0;
+  // v6.8: 按delay换算成帧数入队（不用setTimeout）
+  let cumFrames=0;
   storyArray.forEach((item,i)=>{
-    cumDelay+=item.delay||0;
-    setTimeout(()=>{
-      showStory(item.speaker,item.text,3);
-      if(i===storyArray.length-1&&callback) setTimeout(callback,3500);
-    },cumDelay*1000);
+    cumFrames+=Math.round((item.delay||0)*60);
+    _storyPending.push({
+      speaker:item.speaker,
+      text:item.text,
+      duration:3,
+      waitFrames:cumFrames,
+      isLast:(i===storyArray.length-1),
+      callback:callback
+    });
   });
 }
 
+// 每帧调用：推进story播放（在update()末尾调用）
+function updateStorySystem(){
+  if(!gameRunning) return; // 游戏暂停时story系统暂停
+  const box=document.getElementById('story-box');
+  if(!box) return;
+  const spEl=box.querySelector('.story-speaker');
+  const txEl=box.querySelector('.story-text');
+
+  // 有当前正在播放的story → 倒计时
+  if(_storyCurrent){
+    _storyCurrent._timer-=dt;
+    if(_storyCurrent._timer<=0){
+      box.classList.remove('show');
+      storyActive=false;
+      if(_storyCurrent.isLast&&_storyCurrent.callback) try{_storyCurrent.callback();}catch(e){}
+      _storyCurrent=null;
+    }
+    return;
+  }
+
+  // 没有正在播放的 → 检查队列
+  if(_storyPending.length===0){ storyActive=false; return; }
+
+  // 处理等待帧
+  _storyFrameTimer++;
+  const next=_storyPending[0];
+  if(_storyFrameTimer<next.waitFrames) return; // 还没到时间
+
+  // 播放下一条
+  _storyPending.shift();
+  _storyFrameTimer=0;
+  _storyCurrent={...(next),_timer:next.duration};
+  storyActive=true;
+
+  // 渲染到DOM（直接全文显示，不用打字机setTimeout）
+  spEl.textContent=next.speaker;
+  if(next.speaker==='任务指挥中心') spEl.style.color='#0cf';
+  else if(next.speaker==='Boss') spEl.style.color='#f44';
+  else spEl.style.color='#ff0';
+  txEl.textContent=next.text;
+  box.classList.add('show');
+}
+
 function checkStoryTrigger(heightM){
-  // 高度剧情触发
+  if(!gameRunning) return; // v6.8: 游戏暂停时不触发剧情
   const milestones=[100,500,1000,1500,2000,3000,4000,5000];
   for(const m of milestones){
     if(heightM>=m&&!storyTriggered.has('height'+m)){
@@ -3173,6 +3201,9 @@ function update(now){
     }catch(e){console.warn('[BossStory] 剧情播放出错:',e);}
     _bossStoryQueue=null;
   }
+
+  // v6.8: 每帧推进story系统（帧驱动，替代setTimeout）
+  updateStorySystem();
 }
 
 function applyItem(it){
@@ -3654,9 +3685,12 @@ function startGame(){
   gameRunning=true;
   lastTime=performance.now();
   storyTriggered.clear(); // 重置剧情触发记录
+  // v6.8: 重置帧驱动story系统
+  _storyPending=[];_storyCurrent=null;_storyFrameTimer=0;storyActive=false;
+  try{const b=document.getElementById('story-box');if(b)b.classList.remove('show');}catch(_){}
 
-  // 开场剧情
-  setTimeout(()=>queueStory(STORY_DATA.start),500);
+  // 开场剧情（v6.8: 直接用queueStory，无需外层setTimeout）
+  queueStory(STORY_DATA.start);
 
   // 教程
   if(!hasPlayedTutorial){
@@ -3671,9 +3705,12 @@ function closeTutorial(){
 
 function backToMenu(){
   gameRunning=false;deathSlowMo=0;
-  weaponUpgradeActive=false; // v6.5.2: 重置武器升级状态
+  weaponUpgradeActive=false;
   const wuPanel=document.getElementById('weapon-upgrade');
-  if(wuPanel) wuPanel.style.display='none'; // v6.5.2: 隐藏武器升级面板
+  if(wuPanel) wuPanel.style.display='none';
+  // v6.8: 清理story系统
+  _storyPending=[];_storyCurrent=null;_storyFrameTimer=0;storyActive=false;
+  try{const b=document.getElementById('story-box');if(b)b.classList.remove('show');}catch(_){}
   document.getElementById('gameover').style.display='none';
   document.getElementById('menu').style.display='flex';
   refreshMenu();
@@ -3788,27 +3825,20 @@ function showWeaponUpgrade(){
     gameRunning=false; // 暂停游戏（在try内部，异常时catch能恢复）
     optionsEl.innerHTML='';
     
-    // 随机生成3个选项（最多尝试20次避免死循环）
+    // v6.8: 随机生成3个选项，严格去重（每种type只选一次）
     const options=[];
     const usedTypes=new Set();
-    let attempts=0;
-    while(options.length<3&&attempts<20&&options.length<WEAPON_UPGRADE_OPTIONS.length){
-      const totalW=WEAPON_UPGRADE_OPTIONS.reduce((s,o)=>s+o.weight,0);
-      let r=Math.random()*totalW,wAcc=0,picked=null;
-      for(let i=0;i<WEAPON_UPGRADE_OPTIONS.length;i++){
-        wAcc+=WEAPON_UPGRADE_OPTIONS[i].weight;
-        if(r<=wAcc&&!usedTypes.has(WEAPON_UPGRADE_OPTIONS[i].type)){
-          picked=WEAPON_UPGRADE_OPTIONS[i];
-          break;
-        }
-      }
-      if(!picked) picked=WEAPON_UPGRADE_OPTIONS[Math.floor(Math.random()*WEAPON_UPGRADE_OPTIONS.length)];
-      const cfg=picked.getCfg();
+    // 按权重打乱WEAPON_UPGRADE_OPTIONS顺序，确保不重复
+    const available=WEAPON_UPGRADE_OPTIONS.filter(o=>!usedTypes.has(o.type));
+    const shuffled=[...WEAPON_UPGRADE_OPTIONS].sort(()=>Math.random()-.5);
+    for(const opt of shuffled){
+      if(options.length>=3) break;
+      if(usedTypes.has(opt.type)) continue; // 严格去重：同type只选一次
+      const cfg=opt.getCfg();
       if(cfg){
         options.push(cfg);
-        usedTypes.add(picked.type);
+        usedTypes.add(opt.type);
       }
-      attempts++;
     }
     
     // v6.5.2: 如果没有生成任何选项，fallback直接升级
