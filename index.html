@@ -293,7 +293,8 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v6.9';
+const GAME_VERSION = 'v6.10';
+// v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
 // v6.8: story帧驱动重写+武器升级去重
 // v6.5.2: 彻底修复Boss阶段卡死 - try-catch保护 + 清理残留setTimeout + 阶段转换时清理过量粒子
@@ -302,7 +303,7 @@ const GAME_VERSION = 'v6.9';
 // + Boss每个阶段有独特的弹幕模式和视觉效果
 // + 武器升级可选：升级当前武器/切换武器类型/获得特殊能力
 // 性能优化：Boss阶段转换时添加无敌帧，避免玩家被秒杀
-const BUILD_DATE = '2026-06-30';
+const BUILD_DATE = '2026-07-01';
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 canvas.style.imageRendering = 'auto';
@@ -1176,8 +1177,10 @@ function updateStorySystem(){
 
   // 有当前正在播放的story → 倒计时
   if(_storyCurrent){
+    // v6.10: 防御NaN — dt变成NaN时_timer也会变成NaN，永远关不掉
+    if(!isFinite(dt)) dt=0.016;
     _storyCurrent._timer-=dt;
-    if(_storyCurrent._timer<=0){
+    if(_storyCurrent._timer<=0 || !isFinite(_storyCurrent._timer)){
       box.classList.remove('show');
       storyActive=false;
       if(_storyCurrent.isLast&&_storyCurrent.callback) try{_storyCurrent.callback();}catch(e){}
@@ -1201,6 +1204,11 @@ function updateStorySystem(){
   storyActive=true;
 
   // 渲染到DOM（直接全文显示，不用打字机setTimeout）
+  // v6.10: 防御null DOM元素
+  if(!spEl || !txEl){
+    console.warn('[StorySystem] DOM元素缺失，跳过渲染');
+    return;
+  }
   spEl.textContent=next.speaker;
   if(next.speaker==='任务指挥中心') spEl.style.color='#0cf';
   else if(next.speaker==='Boss') spEl.style.color='#f44';
@@ -1814,6 +1822,11 @@ function drawEnemy(e){
 function enemyShoot(e){
   // 性能保护：敌弹过多时停止生成新弹
   if(enemyBullets.length>_adaptMaxEB*.9) return;
+  // v6.10: 防御NaN — 如果玩家坐标无效，不射击
+  if(!player || !isFinite(player.x) || !isFinite(player.y)){
+    console.warn('[enemyShoot] 玩家坐标无效，跳过射击');
+    return;
+  }
   const bsm=getDynamicBulletSpeed();
   const dScale=getDynamicScale();
   if(e.type==='boss'){
@@ -1846,7 +1859,10 @@ function enemyShoot(e){
     // dScale>5: 瞄准玩家方向射击
     if(dScale>5&&player.alive){
       const dx=player.x-e.x,dy=player.y-e.y,dist=Math.sqrt(dx*dx+dy*dy)||1;
-      enemyBullets.push({x:e.x,y:e.y,vx:dx/dist*180*bsm,vy:dy/dist*180*bsm,life:4,alive:true,bulletType:'laser'});
+      // v6.10: 防御NaN
+      if(isFinite(dx) && isFinite(dy) && dist>0){
+        enemyBullets.push({x:e.x,y:e.y,vx:dx/dist*180*bsm,vy:dy/dist*180*bsm,life:4,alive:true,bulletType:'laser'});
+      }
     }
   } else if(e.type==='medium'){
     enemyBullets.push({x:e.x,y:e.y+10,vx:0,vy:200*bsm,life:3.5,alive:true,bulletType:'normal'});
@@ -2608,7 +2624,9 @@ function update(now){
     return;
   }
   dt=Math.min((now-lastTime)/1000,.05);
-  if(dt<=0) dt=0.016;
+  // v6.10: 【致命修复】NaN <= 0 是 false！所以 dt=NaN 时不会被修正，导致整个游戏崩溃
+  if(!isFinite(dt) || dt<=0) dt=0.016;
+  if(!isFinite(lastTime)) lastTime=now; // 修复 lastTime 变成 NaN 的连锁反应
   lastTime=now;frameCount++;gameTime+=dt;
 
   // FPS自适应降级：每15帧采样8个样本，缓和衰减+快速恢复
@@ -2632,6 +2650,12 @@ function update(now){
     for(let di=_delayedBullets.length-1;di>=0;di--){
       const db=_delayedBullets[di];
       if(frameCount>=db.frame){
+        // v6.10: 防御NaN坐标 — 如果tx/ty/x/y是NaN，跳过并删除
+        if(!isFinite(db.tx)||!isFinite(db.ty)||!isFinite(db.x)||!isFinite(db.y)){
+          console.warn('[_delayedBullets] 无效坐标，跳过');
+          _delayedBullets.splice(di,1);
+          continue;
+        }
         const dx=db.tx-db.x,dy=db.ty-db.y,dist=Math.sqrt(dx*dx+dy*dy)||1;
         enemyBullets.push({x:db.x,y:db.y,vx:dx/dist*db.speed,vy:dy/dist*db.speed,life:db.life,alive:true,bulletType:db.type,isSkill:true});
         _delayedBullets.splice(di,1);
@@ -2643,6 +2667,12 @@ function update(now){
     for(let wi=_delayedWaves.length-1;wi>=0;wi--){
       const dw=_delayedWaves[wi];
       if(frameCount>=dw.frame){
+        // v6.10: 防御NaN坐标
+        if(!isFinite(dw.x)||!isFinite(dw.y)||!isFinite(dw.count)){
+          console.warn('[_delayedWaves] 无效坐标，跳过');
+          _delayedWaves.splice(wi,1);
+          continue;
+        }
         for(let i=0;i<dw.count;i++){
           const a=i*Math.PI*2/dw.count+dw.layer*0.5;
           enemyBullets.push({x:dw.x,y:dw.y,vx:Math.cos(a)*160,vy:Math.sin(a)*120+100,life:3,alive:true,bulletType:'wave',wavePhase:dw.layer*1.2});
@@ -2698,6 +2728,11 @@ function update(now){
     const fmm=player.focusMoveMult||1;
     // 混乱状态：反转移动方向
     const cm=player.confused>0?-1:1;
+    // v6.10: 防御NaN — 如果player坐标变成NaN，强制重置到屏幕中心
+    if(!isFinite(player.x)) player.x=W/2;
+    if(!isFinite(player.y)) player.y=H*.85;
+    if(!isFinite(player.targetX)) player.targetX=W/2;
+    if(!isFinite(player.targetY)) player.targetY=H*.85;
     player.x+=(player.targetX-player.x)*.1*fmm*cm;
     player.y+=(player.targetY-player.y)*.06*fmm*cm;
     player.x=Math.max(5,Math.min(W-5,player.x));
@@ -2770,7 +2805,8 @@ function update(now){
         if(bounced) b.life=Math.max(b.life,1.2); // 反弹刷新生命
       }
     b.life-=dt;
-    if(b.y>H+30||b.y<-30||b.x<-30||b.x>W+30||b.life<=0||i>=MAX_PLAYER_BULLETS){playerBullets.splice(i,1);}
+    // v6.10: 防御NaN
+    if(!isFinite(b.x)||!isFinite(b.y)||!isFinite(b.life)||b.y>H+30||b.y<-30||b.x<-30||b.x>W+30||b.life<=0||i>=MAX_PLAYER_BULLETS){playerBullets.splice(i,1);}
   }
   // 敌弹更新 + 擦弹检测 + 特殊行为（原地清理）
   const MAX_ENEMY_BULLETS=_adaptMaxEB;
@@ -2781,7 +2817,8 @@ function update(now){
     if(b.bulletType==='orb'||b.bulletType==='explosive'){
       b._rot=(b._rot||0)+dt*(b.bulletType==='orb'?2.5:4);
     }
-    if(b.y>H+30||b.y<-30||b.x<-30||b.x>W+30||b.life<=0||i>=MAX_ENEMY_BULLETS){
+    // v6.10: 防御NaN — NaN子弹永远不满足删除条件，会无限堆积
+    if(!isFinite(b.x)||!isFinite(b.y)||!isFinite(b.life)||b.y>H+30||b.y<-30||b.x<-30||b.x>W+30||b.life<=0||i>=MAX_ENEMY_BULLETS){
       // 爆炸弹死亡时散开
       if((b.bulletType==='explosive'||b.willSplit)&&b.life<=0&&b.y<H+30&&b.y>-30&&b.x<W+30&&b.x>-30){
         for(let j=0;j<6;j++){
@@ -3545,11 +3582,18 @@ function gameLoop(now){
       } else {
         _watchdogTimer=0; _lastWatchdogFingerprint=fp;
       }
-      // v6.9: 画面静止 → 强制恢复（安全优先）
-      // 注意: weaponUpgradeActive期间不计入静止（玩家无敌，故事正常运行）
-      if(_watchdogTimer>WATCHDOG_MAX && gameRunning && !storyActive){
+      // v6.10: 画面静止 → 强制恢复（安全优先）
+      // 取消storyActive豁免 — 正常story播放时画面会变化，指纹不会相同
+      // 如果dt变成NaN导致画面静止+story卡住，看门狗必须能触发
+      if(_watchdogTimer>WATCHDOG_MAX && gameRunning){
         _watchdogRecoveryCount++;
-        console.warn(`[Watchdog v6.9] #${_watchdogRecoveryCount} 静止恢复! e=${enemies.length} eb=${enemyBullets.length} wuActive=${weaponUpgradeActive}`);
+        console.warn(`[Watchdog v6.10] #${_watchdogRecoveryCount} 静止恢复! e=${enemies.length} eb=${enemyBullets.length} wuActive=${weaponUpgradeActive} storyActive=${storyActive}`);
+        // 如果story卡住了，强制关闭
+        if(storyActive){
+          console.warn('[Watchdog] story系统卡住，强制关闭');
+          storyActive=false;_storyCurrent=null;_storyPending=[];
+          try{const b=document.getElementById('story-box');if(b)b.classList.remove('show');}catch(_){}
+        }
         enemies.forEach(e=>{e._phaseChanging=false;e._phaseChangeTimer=0;e.invulnerable=0;});
         if(enemyBullets.length>150) enemyBullets.splice(0,enemyBullets.length-150);
         _watchdogTimer=0;
@@ -3562,21 +3606,24 @@ function gameLoop(now){
       }
     } else {
       _watchdogTimer++;
-      // v6.9: gameRunning=false时冻结恢复
-      // weapon-upgrade不再暂停游戏，所以只检查gameover和menu
+      // v6.10: gameRunning=false时冻结恢复
+      // 取消storyActive豁免 — dt=NaN时gameRunning可能还是true（如果异常在update之后发生）
+      // 或者如果gameRunning被意外设为false，但story卡住了
       const goEl=document.getElementById('gameover');
       const menuEl=document.getElementById('menu');
       const isNormalStop=(goEl&&goEl.style.display.match(/flex|block/))
-                     ||(menuEl&&menuEl.style.display.match(/flex|block/))
-                     ||storyActive;
+                     ||(menuEl&&menuEl.style.display.match(/flex|block/));
       if(_watchdogTimer>WATCHDOG_MAX && !isNormalStop){
         _watchdogRecoveryCount++;
-        console.warn(`[Watchdog v6.9] #${_watchdogRecoveryCount} 冻结恢复! running=${gameRunning}`);
+        console.warn(`[Watchdog v6.10] #${_watchdogRecoveryCount} 冻结恢复! running=${gameRunning}`);
         gameRunning=true;
         weaponUpgradeActive=false;
         if(_wuTimeout){clearTimeout(_wuTimeout);_wuTimeout=null;}
         const wuEl=document.getElementById('weapon-upgrade');
         if(wuEl) wuEl.style.display='none';
+        // 强制关闭story
+        storyActive=false;_storyCurrent=null;_storyPending=[];
+        try{const b=document.getElementById('story-box');if(b)b.classList.remove('show');}catch(_){}
         _watchdogTimer=0;
         enemies.forEach(e=>{e._phaseChanging=false;e._phaseChangeTimer=0;e.invulnerable=0;});
         if(enemyBullets.length>150) enemyBullets.splice(0,enemyBullets.length-150);
