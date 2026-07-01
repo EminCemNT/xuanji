@@ -710,13 +710,13 @@ const BOSS_PATTERNS = {
 
 // ==================== 敌人子弹类型系统 ====================
 const ENEMY_BULLET_TYPES = {
-  normal: {color:'#f44',icon:'●',size:5,glow:'rgba(255,50,50,0.6)',inner:'rgba(255,255,255,0.8)'},
-  homing: {color:'#f84',icon:'◆',size:5,glow:'rgba(255,136,68,0.6)',inner:'rgba(255,255,255,0.8)'},
-  wave:   {color:'#4fc',icon:'~',size:4,glow:'rgba(68,255,204,0.6)',inner:'rgba(255,255,255,0.8)'},
-  explosive:{color:'#f80',icon:'◉',size:7,glow:'rgba(255,136,0,0.7)',inner:'rgba(255,255,200,0.9)',willExplode:true},
-  fast:   {color:'#fff',icon:'⚡',size:3,glow:'rgba(255,255,255,0.8)',inner:'rgba(255,255,255,1)'},
-  orb:    {color:'#a4f',icon:'◎',size:9,glow:'rgba(170,68,255,0.5)',inner:'rgba(255,255,255,0.6)'},
-  laser:  {color:'#f22',icon:'▬',size:2,glow:'rgba(255,34,34,0.9)',inner:'#fff',isBeam:true}
+  normal: {color:'#f44',icon:'●',size:5,glow:'rgba(255,50,50,0.6)',inner:'rgba(255,255,255,0.8)',trail:'rgba(255,80,80,0.35)'},
+  homing: {color:'#f84',icon:'◆',size:5,glow:'rgba(255,136,68,0.6)',inner:'rgba(255,255,255,0.8)',trail:'rgba(255,170,68,0.35)'},
+  wave:   {color:'#4fc',icon:'~',size:4,glow:'rgba(68,255,204,0.6)',inner:'rgba(255,255,255,0.8)',trail:'rgba(68,255,204,0.3)'},
+  explosive:{color:'#f80',icon:'◉',size:7,glow:'rgba(255,136,0,0.7)',inner:'rgba(255,255,200,0.9)',trail:'rgba(255,200,0,0.35)',willExplode:true},
+  fast:   {color:'#fff',icon:'⚡',size:3,glow:'rgba(255,255,255,0.8)',inner:'rgba(255,255,255,1)',trail:'rgba(255,255,255,0.25)'},
+  orb:    {color:'#a4f',icon:'◎',size:9,glow:'rgba(170,68,255,0.5)',inner:'rgba(255,255,255,0.6)',trail:'rgba(170,68,255,0.3)'},
+  laser:  {color:'#f22',icon:'▬',size:2,glow:'rgba(255,34,34,0.9)',inner:'#fff',trail:'rgba(255,0,0,0.4)',isBeam:true}
 };
 
 // ==================== Boss技能系统 ====================
@@ -881,7 +881,9 @@ const WEAPON_TYPES = {
     name:'散射炮', icon:'🔷', color:'#0cf', desc:'多发扇形弹幕',
     levels:[
       {count:1,spread:0,speed:900,life:2.5},
-      {count:3,spread:0.12,speed:900,life:2.5},
+      {count:2,spread:0.08,speed:900,life:2.5},
+      {count:3,spread:0.10,speed:920,life:2.5},
+      {count:5,spread:0.11,speed:940,life:2.5},
       {count:7,spread:0.12,speed:950,life:2.5}
     ]
   },
@@ -889,7 +891,9 @@ const WEAPON_TYPES = {
     name:'激光炮', icon:'💠', color:'#f44', desc:'射出穿透光柱',
     levels:[
       {width:6,length:140,speed:1600,dmg:10,life:.32},
+      {width:8,length:180,speed:1800,dmg:14,life:.33},
       {width:10,length:220,speed:2000,dmg:18,life:.34},
+      {width:12,length:280,speed:2200,dmg:24,life:.35},
       {width:14,length:320,speed:2400,dmg:30,life:.36}
     ]
   },
@@ -897,15 +901,19 @@ const WEAPON_TYPES = {
     name:'折射弹', icon:'💚', color:'#0f0', desc:'边界反弹弹幕',
     levels:[
       {count:1,bounces:1,speed:500,life:3},
+      {count:1,bounces:2,speed:530,life:3},
       {count:2,bounces:2,speed:550,life:3},
-      {count:3,bounces:2,speed:600,life:3}
+      {count:2,bounces:3,speed:580,life:3},
+      {count:3,bounces:3,speed:600,life:3}
     ]
   },
   homing: {
     name:'追踪弹', icon:'💛', color:'#ff0', desc:'自动追踪目标',
     levels:[
       {count:1,speed:350,turnRate:6,life:3},
+      {count:1,speed:380,turnRate:6.5,life:3},
       {count:2,speed:400,turnRate:7,life:3},
+      {count:2,speed:430,turnRate:7.5,life:3},
       {count:3,speed:450,turnRate:8,life:3.5}
     ]
   }
@@ -1528,6 +1536,8 @@ function drawPlayer(p){
   if(weaponLevel>=1){wingGlow(0)}
   if(weaponLevel>=2){wingGlow(16);wingGlow(-16)}
   if(weaponLevel>=3){wingGlow(8);wingGlow(-8)}
+  if(weaponLevel>=4){wingGlow(24);wingGlow(-24)}
+  if(weaponLevel>=5){wingGlow(4);wingGlow(-4)}
 
   // 集中模式：显示命中点（3px小点）
   if(isFocus){
@@ -1575,28 +1585,39 @@ function shoot(p){
 }
 function drawPlayerBullet(b){
   if(b.y<-60||b.y>H+60||b.x<-60||b.x>W+60) return;
-  /*v6.0: 绝对坐标渲染，去掉save/restore/translate*/
   const bx=b.x,by=b.y;
+  const evo=weaponEvolved; // v7.0: 进化状态
   if(b.type==='laser'){
     const w=b.w,l=b.l;
     const g=ctx.createLinearGradient(bx,by,bx,by-l);
-    g.addColorStop(0,'#fff');g.addColorStop(.15,'#f44');g.addColorStop(.5,'#f22');g.addColorStop(1,'rgba(255,0,0,0)');
+    if(evo){g.addColorStop(0,'#fff');g.addColorStop(.1,'#ff0');g.addColorStop(.3,'#f80');g.addColorStop(.7,'#f44');g.addColorStop(1,'rgba(255,0,0,0)');}
+    else {g.addColorStop(0,'#fff');g.addColorStop(.15,'#f44');g.addColorStop(.5,'#f22');g.addColorStop(1,'rgba(255,0,0,0)');}
     ctx.fillStyle=g;ctx.fillRect(bx-w/2,by-l,w,l);
-    ctx.fillStyle='rgba(255,80,80,0.6)';ctx.fillRect(bx-1,by-l,2,l);
+    if(evo){ctx.shadowColor='#f80';ctx.shadowBlur=12;}
+    ctx.fillStyle=evo?'rgba(255,200,80,0.7)':'rgba(255,80,80,0.6)';ctx.fillRect(bx-1,by-l,2,l);
     ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1;
     ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx,by-l);ctx.stroke();
+    if(evo) ctx.shadowBlur=0;
   } else if(b.type==='refract'){
-    ctx.fillStyle='#0f0';ctx.beginPath();
-    for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6,r=6;if(i===0)ctx.moveTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);else ctx.lineTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);}
+    if(evo){ctx.shadowColor='#0f0';ctx.shadowBlur=10;}
+    ctx.fillStyle=evo?'#8f8':'#0f0';ctx.beginPath();
+    for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6,r=evo?7.5:6;if(i===0)ctx.moveTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);else ctx.lineTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);}
     ctx.closePath();ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,2.5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,evo?3.5:2.5,0,Math.PI*2);ctx.fill();
+    if(evo) ctx.shadowBlur=0;
   } else if(b.type==='homing'){
-    ctx.fillStyle='#ff0';ctx.beginPath();ctx.moveTo(bx,by-8);ctx.lineTo(bx+4,by);ctx.lineTo(bx+2,by+8);ctx.lineTo(bx-2,by+8);ctx.lineTo(bx-4,by);ctx.closePath();ctx.fill();
-    ctx.fillStyle='#f80';ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();
+    if(evo){ctx.shadowColor='#ff0';ctx.shadowBlur=10;}
+    ctx.fillStyle=evo?'#ff8':'#ff0';ctx.beginPath();ctx.moveTo(bx,by-(evo?10:8));ctx.lineTo(bx+4,by);ctx.lineTo(bx+2,by+(evo?10:8));ctx.lineTo(bx-2,by+(evo?10:8));ctx.lineTo(bx-4,by);ctx.closePath();ctx.fill();
+    ctx.fillStyle=evo?'#fa0':'#f80';ctx.beginPath();ctx.arc(bx,by,evo?4:3,0,Math.PI*2);ctx.fill();
+    if(evo) ctx.shadowBlur=0;
   } else {
-    ctx.fillStyle='#0cf';
-    ctx.beginPath();ctx.moveTo(bx,by-10);ctx.lineTo(bx+3,by-2);ctx.lineTo(bx+3,by+6);ctx.lineTo(bx,by+8);ctx.lineTo(bx-3,by+6);ctx.lineTo(bx-3,by-2);ctx.closePath();ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,0.6)';ctx.fillRect(bx-1,by-8,2,14);
+    // v7.0: 散射弹进化后更亮更大
+    if(evo){ctx.shadowColor='#0cf';ctx.shadowBlur=8;}
+    ctx.fillStyle=evo?'#8ff':'#0cf';
+    const sz=evo?12:10;
+    ctx.beginPath();ctx.moveTo(bx,by-sz);ctx.lineTo(bx+3,by-2);ctx.lineTo(bx+3,by+6);ctx.lineTo(bx,by+sz);ctx.lineTo(bx-3,by+6);ctx.lineTo(bx-3,by-2);ctx.closePath();ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.6)';ctx.fillRect(bx-1,by-(evo?10:8),2,evo?20:14);
+    if(evo) ctx.shadowBlur=0;
   }
 }
 
@@ -1911,38 +1932,46 @@ function enemyShoot(e){
 }
 
 function drawEnemyBullet(b){
-  if(b.y<-30||b.y>H+30||b.x<-30||b.x>W+30) return;
+  if(b.y<-50||b.y>H+50||b.x<-50||b.x>W+50) return;
   const bt=b.bulletType||'normal';
   const cfg=ENEMY_BULLET_TYPES[bt]||ENEMY_BULLET_TYPES['normal'];
-  // 性能降级：子弹数量多时只画普通形式
   const lowDetail=enemyBullets.length>_adaptMaxEB*.75;
   const bx=b.x,by=b.y;
-  /* v6.4: 绝对坐标 + 独特几何形状 — 每种弹幕类型一眼可辨 */
+
+  // v7.0: 所有子弹增加运动轨迹拖尾 — 解决"射出一半消失"问题
+  const spd=Math.sqrt(b.vx*b.vx+b.vy*b.vy)||180;
+  if(spd>30){
+    const trailLen=Math.min(spd*.08,35); // 拖尾长度根据速度自适应，最长35px
+    const nx=-b.vx/spd,ny=-b.vy/spd;
+    ctx.globalAlpha=lowDetail?.12:.22;
+    ctx.strokeStyle=cfg.trail||cfg.glow;
+    ctx.lineWidth=cfg.size||3;
+    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+nx*trailLen,by+ny*trailLen);ctx.stroke();
+    ctx.globalAlpha=1;
+  }
 
   if(bt==='laser'){
-    // 高速激光束 — 细长线束 + 白芯
-    ctx.strokeStyle=cfg.color;ctx.lineWidth=cfg.size;ctx.globalAlpha=0.8;
-    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+b.vx*.025,by+b.vy*.025);ctx.stroke();
+    // v7.0: 激光束轨迹从5px延长到16-24px（解决"射出一半消失"）
+    const beamLen=Math.min(spd*.12,28);
+    ctx.strokeStyle=cfg.color;ctx.lineWidth=cfg.size;ctx.globalAlpha=0.85;
+    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+b.vx/spd*beamLen,by+b.vy/spd*beamLen);ctx.stroke();
     ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1;ctx.globalAlpha=0.6;
-    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+b.vx*.015,by+b.vy*.015);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+b.vx/spd*beamLen*0.6,by+b.vy/spd*beamLen*0.6);ctx.stroke();
     ctx.globalAlpha=1;
-
   } else if(bt==='fast'){
-    // 快速弹 — 白色菱形 + 长拖尾(运动方向延伸)
-    const spd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
-    const nx=spd>0.1?b.vx/spd:0,ny=spd>0.1?b.vy/spd:0;
-    for(let t=1;t<=3;t++){
-      const tx=bx-nx*t*5,ty=by-ny*t*5;
-      const alpha=1-t*0.28,sz=2+t*0.8;
+    // v7.0: 快速弹增加4个拖尾菱形（原来3个），保留更久
+    const fspd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
+    const fnx=fspd>0.1?b.vx/fspd:0,fny=fspd>0.1?b.vy/fspd:0;
+    for(let t=1;t<=4;t++){
+      const tx=bx-fnx*t*7,ty=by-fny*t*7;
+      const alpha=1-t*0.18,sz=2.5+t*1.2;
       ctx.globalAlpha=alpha;ctx.fillStyle=cfg.glow;
       ctx.beginPath();ctx.moveTo(tx,ty-sz);ctx.lineTo(tx+sz*0.5,ty);ctx.lineTo(tx,ty+sz);ctx.lineTo(tx-sz*0.5,ty);ctx.closePath();ctx.fill();
     }
     ctx.fillStyle='#fff';ctx.globalAlpha=1;
     ctx.beginPath();ctx.moveTo(bx,by-7);ctx.lineTo(bx+2.5,by);ctx.lineTo(bx,by+7);ctx.lineTo(bx-2.5,by);ctx.closePath();ctx.fill();
     ctx.fillStyle='#fff';ctx.fillRect(bx-.5,by-5,1,10);
-
   } else if(bt==='wave'){
-    // 波形弹 — 扁平椭圆 + 正弦摆动偏移（非圆形！）
     const wt=(b._wt||0)*6;
     const wobbleX=Math.sin(wt)*2.5,wobbleY=Math.cos(wt*1.3)*1.5;
     const wx=bx+wobbleX,wy=by+wobbleY;
@@ -1950,14 +1979,11 @@ function drawEnemyBullet(b){
     ctx.ellipse(wx,wy,cfg.size*1.6,cfg.size*0.7,wt*0.5,0,Math.PI*2);ctx.fill();
     ctx.fillStyle=cfg.inner;ctx.beginPath();
     ctx.ellipse(wx,wy,cfg.size*0.4,cfg.size*0.25,wt*0.5,0,Math.PI*2);ctx.fill();
-    if(!lowDetail){
-      ctx.globalAlpha=0.35;ctx.fillStyle=cfg.glow;
-      ctx.beginPath();ctx.ellipse(wx-b.vx*.008,wy-b.vy*.008,cfg.size*1.1,cfg.size*0.5,wt*0.5,0,Math.PI*2);ctx.fill();
-      ctx.globalAlpha=1;
-    }
-
+    // v7.0: lowDetail也保留拖尾（只是缩短）
+    ctx.globalAlpha=lowDetail?.22:.35;ctx.fillStyle=cfg.glow;
+    ctx.beginPath();ctx.ellipse(wx-b.vx*.008,wy-b.vy*.008,cfg.size*1.1,cfg.size*0.5,wt*0.5,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=1;
   } else if(bt==='orb'){
-    // 能量球 — 六边形外框 + 内旋点（非圆形！）
     const or=cfg.size,rot=b._rot||0;
     ctx.strokeStyle=cfg.color;ctx.lineWidth=2;ctx.globalAlpha=0.7;
     ctx.beginPath();
@@ -1970,9 +1996,7 @@ function drawEnemyBullet(b){
     for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6-rot*1.5;const px=bx+Math.cos(a)*ir,py=by+Math.sin(a)*ir;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
     ctx.closePath();ctx.stroke();
     ctx.fillStyle='rgba(255,255,255,0.7)';ctx.globalAlpha=1;ctx.beginPath();ctx.arc(bx,by,2,0,Math.PI*2);ctx.fill();
-
   } else if(bt==='explosive'){
-    // 爆炸弹 — 锯齿星形（非圆形！）+ 脉冲
     const pulse=lowDetail?1:1+Math.sin(b.life*15)*.2;
     const er=cfg.size*pulse,spikes=6,erot=b._rot||0;
     ctx.fillStyle=cfg.glow;ctx.beginPath();
@@ -1995,14 +2019,13 @@ function drawEnemyBullet(b){
       }
       ctx.closePath();ctx.stroke();ctx.setLineDash([]);
     }
-
   } else if(bt==='homing'){
-    // 追踪弹 — 三角箭头 + 方向指示（非圆形！）
-    const spd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
-    const hx=spd>0.1?b.vx/spd:0,hy=spd>0.1?b.vy/spd:0;
-    for(let t=1;t<=2;t++){
-      const tx=bx-hx*t*6,ty=by-hy*t*6;
-      const alpha=1-t*0.4,sz=3+t*1.5;
+    const hspd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
+    const hx=hspd>0.1?b.vx/hspd:0,hy=hspd>0.1?b.vy/hspd:0;
+    // v7.0: 增加3个箭头拖尾
+    for(let t=1;t<=3;t++){
+      const tx=bx-hx*t*5,ty=by-hy*t*5;
+      const alpha=1-t*0.25,sz=3+t*1.2;
       ctx.globalAlpha=alpha;ctx.fillStyle=cfg.glow;
       ctx.beginPath();ctx.moveTo(tx,ty-sz);ctx.lineTo(tx+sz*0.6,ty+sz*0.5);ctx.lineTo(tx-sz*0.6,ty+sz*0.5);ctx.closePath();ctx.fill();
     }
@@ -2015,11 +2038,9 @@ function drawEnemyBullet(b){
     ctx.strokeStyle='#ff0';ctx.lineWidth=1;ctx.globalAlpha=0.7;
     ctx.stroke();ctx.globalAlpha=1;
     ctx.fillStyle=cfg.inner;ctx.beginPath();ctx.arc(bx,by,1.8,0,Math.PI*2);ctx.fill();
-
   } else {
-    // 普通弹 — 经典红圆球
     ctx.fillStyle=cfg.glow;ctx.beginPath();ctx.arc(bx,by,cfg.size,0,Math.PI*2);ctx.fill();
-    if(!lowDetail){ctx.fillStyle=cfg.inner;ctx.beginPath();ctx.arc(bx,by-0.8,2,0,Math.PI*2);ctx.fill();}
+    ctx.fillStyle=cfg.inner;ctx.beginPath();ctx.arc(bx,by-0.8,2,0,Math.PI*2);ctx.fill();
   }
 }
 
@@ -2291,16 +2312,28 @@ function drawDrones(){
 }
 
 // ==================== 炸弹 ====================
+let _bombWave=0; // v7.0: 炸弹冲击波半径
+
 function useBomb(){
   if(bombCount<=0) return;
   bombCount--; dailyMissions.missions.forEach(m=>{if(m.type==='bomb'&&!m.done)m.progress++;});
-  spawnParticles(W/2,H/2,60,'#fff',300,.8,4);
+  // v7.0: 核弹清屏 — 全屏白色闪光+冲击波扩散+文字提示
+  _bombWave=1; // 触发冲击波动画
+  player.bombAnim=1.2; // 延长闪光时间
+  screenShakeTrauma=1.0; // 更强震屏
   SFX.bomb();
-  spawnParticles(W/2,H/2,40,'#0ff',250,.6,3);
-  screenShakeTrauma=0.5;
-  enemies.forEach(e=>{spawnParticles(e.x,e.y,15,'#f84',100,.4,3);});
+  // 全屏粒子爆发
+  spawnParticles(W/2,H/2,80,'#fff',400,1.0,5);
+  spawnParticles(W/2,H/2,50,'#ff0',300,.8,4);
+  spawnParticles(W/2,H/2,30,'#f80',250,.6,3);
+  // 每个敌人单独爆炸效果（视觉上更震撼）
+  enemies.forEach(e=>{spawnParticles(e.x,e.y,20,e.color,150,.5,3);spawnParticles(e.x,e.y,10,'#fff',80,.3,2);});
+  // 文字提示
+  addScorePopup(W/2,H*.3,'💣 核弹清屏！！','#fff',28);
+  addScorePopup(W/2,H*.3+30,'消灭 '+enemies.length+' 敌人 + 清除 '+enemyBullets.length+' 子弹','#ff0',16);
   enemies=[];enemyBullets=[];
-  player.invincible=1.5;player.bombAnim=1;
+  player.invincible=2.5; // 延长无敌时间
+  _delayedBullets=[];_delayedWaves=[]; // 清空延迟队列
 }
 
 // ==================== 背景 ====================
@@ -2770,6 +2803,8 @@ function update(now){
     if(player.score2xTimer>0) player.score2xTimer-=dt;
     if(player.magnetTimer>0) player.magnetTimer-=dt;
     if(player.bombAnim>0) player.bombAnim-=dt;
+    // v7.0: 炸弹冲击波扩散
+    if(_bombWave>0){_bombWave+=700*dt*2.5;if(_bombWave>W*1.2)_bombWave=0;}
 
     player.shootTimer-=dt;
     if(player.shootTimer<=0){shoot(player);player.shootTimer=weaponType==='laser'?0.4:player.shootRate;}
@@ -3021,14 +3056,18 @@ function update(now){
             // Boss 20%概率掉进化道具（第二关后）
             if(heightM>500&&!weaponEvolved&&Math.random()<.2) items.push(createItem(e.x,e.y-20,'evolve'));
           } else if(e.type==='large'){
-            if(Math.random()<.7)items.push(createItem(e.x,e.y,Math.random()<.5?'weapon':'bomb'));
+            // v7.0: 增加炸弹掉落概率（从35%提升到60%）
+            if(Math.random()<.7)items.push(createItem(e.x,e.y,Math.random()<.3?'weapon':'bomb'));
             if(Math.random()<.5)items.push(createItem(e.x+15,e.y,'coin'));
+            if(Math.random()<.25)items.push(createItem(e.x-15,e.y,'bomb')); // 额外25%炸弹掉落
           } else if(e.type==='medium'){
             if(Math.random()<.4)items.push(createItem(e.x,e.y,Math.random()<.4?'star':'shield'));
             if(Math.random()<.3)items.push(createItem(e.x+10,e.y,'coin'));
+            if(Math.random()<.15)items.push(createItem(e.x-10,e.y,'bomb')); // v7.0: 中怪15%概率掉炸弹
           } else {
             if(Math.random()<.15)items.push(createItem(e.x,e.y,'coin'));
             if(Math.random()<.04)items.push(createItem(e.x,e.y,'star'));
+            if(Math.random()<.03)items.push(createItem(e.x,e.y,'bomb')); // v7.0: 小怪3%概率掉炸弹
           }
           enemies.splice(ei,1);
         }
@@ -3246,7 +3285,7 @@ function update(now){
   // 道具掉落
   if(Math.random()<.003) items.push(createItem(Math.random()*W,-20,'coin'));
   // 武器道具：可升级同类型或切换新类型
-  if(Math.random()<.0012 && weaponLevel<3){
+  if(Math.random()<.0012 && weaponLevel<5){
     items.push(createItem(Math.random()*W,-20,'weapon',weaponType));
   }
   // 低频掉落随机武器类型（切换或重置）
@@ -3254,6 +3293,10 @@ function update(now){
     const types=Object.keys(WEAPON_TYPES).filter(t=>t!==weaponType);
     const newType=types[Math.floor(Math.random()*types.length)];
     items.push(createItem(Math.random()*W,-20,'weapon',newType));
+  }
+  // v7.0: 随机生成炸弹道具（比武器更频繁）
+  if(Math.random()<.0015){
+    items.push(createItem(Math.random()*W,-20,'bomb'));
   }
   
   // v6.5.3: Boss出场剧情延迟队列处理（替代setTimeout）
@@ -3443,8 +3486,26 @@ function draw(offset){
     ctx.textAlign='left';
   }
 
-  // 炸弹动画
-  if(player.bombAnim>0){ctx.fillStyle=`rgba(255,255,255,${player.bombAnim*.6})`;ctx.fillRect(0,0,W,H);}
+  // 炸弹动画 + v7.0冲击波扩散
+  if(player.bombAnim>0){
+    ctx.fillStyle=`rgba(255,255,255,${player.bombAnim*.55})`;
+    ctx.fillRect(0,0,W,H);
+  }
+  // v7.0: 炸弹冲击波——从中心向外扩散的白色圆环
+  if(_bombWave>0){
+    const waveAlpha=Math.max(0,1-_bombWave/(W*0.8));
+    if(waveAlpha>0){
+      ctx.strokeStyle=`rgba(255,255,200,${waveAlpha*.7})`;
+      ctx.lineWidth=8+_bombWave*.03;
+      ctx.beginPath();ctx.arc(W/2,H/2,_bombWave,0,Math.PI*2);ctx.stroke();
+      ctx.strokeStyle=`rgba(255,200,100,${waveAlpha*.4})`;
+      ctx.lineWidth=4+_bombWave*.02;
+      ctx.beginPath();ctx.arc(W/2,H/2,_bombWave*0.85,0,Math.PI*2);ctx.stroke();
+      ctx.strokeStyle=`rgba(255,255,255,${waveAlpha*.25})`;
+      ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(W/2,H/2,_bombWave*0.7,0,Math.PI*2);ctx.stroke();
+    }
+  }
 
   ctx.restore();
 
