@@ -1386,6 +1386,11 @@ const WATCHDOG_MAX=60; // ~1秒@60fps（v6.7: 从180大幅缩短，快速恢复�
 let _semiFreezeCounter=0; // 敌弹+敌机数量连续不变帧数
 let _lastEntityCount=0;   // 上一帧的 (enemyBullets.length*100 + enemies.length)
 const SEMI_FREEZE_MAX=90; // ~1.5秒@60fps（比看门狗宽松，避免误判）
+// v6.14: 三重独立冻结检测 — 彻底根治"风筝能动其他不动"
+let _lastUpdateSuccess=0; // 上次update()成功执行的时间戳(ms)
+let _e0FreezeCounter=0;   // 第一个敌人Y坐标连续不变帧数
+let _lastE0Y=0;           // 上一帧第一个敌人的Y坐标
+let _consecutiveRecoveries=0; // 连续恢复次数（>=3进入安全模式）
 // v6.5.3: Boss出场剧情延迟队列（替代setTimeout）
 let _bossStoryQueue=null;
 // v6.5.2: 帧级延迟队列（替代setTimeout，避免iframe中不可靠）
@@ -3612,40 +3617,86 @@ function gameLoop(now){
     if(gameRunning||deathSlowMo>0) {
       update(now);
     }
+    // v6.14: update()成功时间戳 — 只有成功执行才更新
+    _lastUpdateSuccess = performance.now();
   } catch(e) {
-    console.error('[v6.12 update] 异常(已隔离):', e.message||e);
-    // 紧急恢复关键状态，防止级联崩溃
-    try { if(!isFinite(dt)) dt=0.016; if(!isFinite(lastTime)) lastTime=performance.now(); } catch(_) {}
+    console.error('[v6.14 update] 异常(已隔离):', e.message||e);
+    // v6.14: 软恢复 — 每次异常当场清理可能积累的状态，防止delayed bullets无限堆积
+    try {
+      if(enemyBullets.length > 150) enemyBullets.splice(0, enemyBullets.length - 150);
+      if(_delayedBullets && _delayedBullets.length > 0) _delayedBullets = [];
+      if(_delayedWaves && _delayedWaves.length > 0) _delayedWaves = [];
+      if(!isFinite(dt)) dt = 0.016;
+      if(!isFinite(lastTime)) lastTime = performance.now();
+    } catch(_) {}
   }
 
-  // v6.13: 半冻结检测（在ALL try-catch外面！）— 专门抓"风筝能动但其他不动"
+  // v6.14: 三重冻结检测（在ALL try-catch外面！）— 没有任何一个能被"风筝能动"欺骗
   if(gameRunning && (enemies.length > 0 || enemyBullets.length > 0)){
     const _postEntityCount = enemyBullets.length * 100 + enemies.length;
+
+    // 检测1: SemiFreeze 实体数量（连续不变→可能冻结）
     if(_postEntityCount === _lastEntityCount && _postEntityCount > 0){
       _semiFreezeCounter++;
     } else {
       _semiFreezeCounter = 0;
     }
     _lastEntityCount = _postEntityCount;
-    // 敌机/弹数量连续~1.5秒不变 → 强制恢复（即使玩家在动）
-    if(_semiFreezeCounter > SEMI_FREEZE_MAX && _postEntityCount > 0){
+
+    // 检测2: 敌人移动检测（O(1) — 检查第一个敌人Y坐标是否变化）
+    // 这是唯一能检测"delayed bullets在积累导致数量变化但敌人不动"的方法
+    if(enemies.length > 0){
+      const e0 = enemies[0];
+      if(e0._lastCheckY !== undefined && Math.abs(e0.y - e0._lastCheckY) < 1){
+        _e0FreezeCounter++;
+      } else {
+        _e0FreezeCounter = 0;
+      }
+      e0._lastCheckY = e0.y;
+    } else {
+      _e0FreezeCounter = 0;
+    }
+
+    // 检测3: update()成功时间戳（0.5秒没成功过=update()每帧都在抛异常）
+    const updateStalled = _lastUpdateSuccess && (performance.now() - _lastUpdateSuccess > 500);
+
+    // 触发条件: 任一检测器超过阈值，或时间戳检测到update()连续失败
+    if((_semiFreezeCounter > SEMI_FREEZE_MAX || _e0FreezeCounter > 60 || updateStalled) && _postEntityCount > 0){
       _watchdogRecoveryCount++;
-      console.warn(`[SemiFreeze v6.13] #${_watchdogRecoveryCount} 半冻结恢复! e=${enemies.length} eb=${enemyBullets.length} pb=${playerBullets.length}`);
-      _semiFreezeCounter = 0; _watchdogTimer = 0;
-      // 强制恢复dt和lastTime
-      dt = 0.016; lastTime = performance.now();
-      // 强制推进所有敌机位置（让画面"活过来"）
-      enemies.forEach(e => { e.y += e.vy * dt; e.x += e.vx * dt; });
-      // 清理过量敌弹
-      if(enemyBullets.length > 100) enemyBullets.splice(0, enemyBullets.length - 100);
+      _consecutiveRecoveries++;
+      const reason = _semiFreezeCounter > SEMI_FREEZE_MAX ? 'SemiFreeze' : (_e0FreezeCounter > 60 ? 'EnemyMove' : 'UpdateStalled');
+      console.warn(`[v6.14 FreezeDetect #${_watchdogRecoveryCount}] ${reason} 恢复! e=${enemies.length} eb=${enemyBullets.length} pb=${playerBullets.length} cr=${_consecutiveRecoveries}`);
+      _semiFreezeCounter = 0; _e0FreezeCounter = 0; _watchdogTimer = 0;
+
+      // 核恢复: 清除所有可能导致问题的状态
+      dt = 0.016; lastTime = performance.now(); _lastUpdateSuccess = performance.now();
+      // 清空所有子弹（敌弹+玩家弹+延迟队列）— 防止积累状态导致再次异常
+      enemyBullets = []; playerBullets = []; _delayedBullets = []; _delayedWaves = [];
+      // 粒子太多也清掉
+      if(particles.length > 200) particles = particles.slice(-200);
+      // 强制推进敌机一帧（避免它们原地堆积）
+      enemies.forEach(e => { e.y += (e.vy || 0) * dt; e.x += (e.vx || 0) * dt; });
       // 强制关闭story
       if(storyActive){storyActive=false;_storyCurrent=null;_storyPending=[];try{const b=document.getElementById('story-box');if(b)b.classList.remove('show');}catch(_){}}
       // 重置所有phaseChanging状态
       enemies.forEach(e=>{e._phaseChanging=false;e._phaseChangeTimer=0;e.invulnerable=0;});
       waveTimer = 0.1;
+
+      // v6.14: 安全模式 — 连续恢复3次，说明有顽固bug，简化游戏逻辑
+      if(_consecutiveRecoveries >= 3){
+        console.warn('[v6.14 SafeMode] 连续恢复3次，进入安全模式 — 简化敌弹和Boss技能');
+        // 安全模式: 降低弹幕密度上限
+        _adaptMaxEB = 80;
+        _adaptMaxP = 80;
+        // 如果有Boss，延长它的技能冷却
+        enemies.forEach(e => { if(e.type === 'boss') e.skillTimer = 5; });
+      }
+    } else {
+      // 正常帧 → 连续恢复计数器衰减（每10秒清零一次）
+      if(_consecutiveRecoveries > 0 && frameCount % 600 === 0) _consecutiveRecoveries = 0;
     }
   } else {
-    _semiFreezeCounter = 0;
+    _semiFreezeCounter = 0; _e0FreezeCounter = 0;
   }
 
   // ════════════════════════════════════════
@@ -3653,10 +3704,10 @@ function gameLoop(now){
   //   无论update是否异常，这里都会执行
   // ════════════════════════════════════════
   if(gameRunning || (!player.alive && deathSlowMo>0)) {
-    // v6.12: 增强指纹 — 加入frameCount防止"变化但相同"误判
+    // v6.14: 看门狗指纹 — 去掉player坐标！风筝能动不代表游戏正常
+    // 只检测敌人+子弹+分数的变化，如果敌人都冻住了，指纹应该不变
     const bossHp=bossFight?Math.floor(bossFight.hp):0;
-    const px=player.alive?Math.floor(player.x*10+player.y*10):0;
-    const fp=enemies.length*1000+enemyBullets.length*100+playerBullets.length*10+Math.floor(score)+bossHp+(frameCount%300)+px;
+    const fp=enemies.length*1000+enemyBullets.length*100+playerBullets.length*10+Math.floor(score)+bossHp+(frameCount%300);
     if(fp===_lastWatchdogFingerprint){
       _watchdogTimer++;
     } else {
@@ -3792,6 +3843,8 @@ function startGame(){
   _delayedBullets=[];_delayedWaves=[]; // v6.5.2: 重置延迟队列
   _bossStoryQueue=null; // v6.5.3: 重置Boss剧情队列
   _watchdogTimer=0; _lastWatchdogFingerprint=0; // v6.6.1: 重置看门狗
+  _semiFreezeCounter=0; _lastEntityCount=0; // v6.13: 重置半冻结检测
+  _lastUpdateSuccess=0; _e0FreezeCounter=0; _lastE0Y=0; _consecutiveRecoveries=0; // v6.14: 重置冻结检测
   _fpsSamples=[];_adaptMaxEB=200;_adaptMaxP=300; // v6.0: 每局重置FPS自适应
   scorePopups=[];
   // v6.5.2: 重置遗漏的状态变量
