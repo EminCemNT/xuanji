@@ -293,7 +293,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v6.10';
+const GAME_VERSION = 'v7.1';
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
 // v6.8: story帧驱动重写+武器升级去重
@@ -1584,40 +1584,64 @@ function shoot(p){
   SFX.shoot();
 }
 function drawPlayerBullet(b){
-  if(b.y<-60||b.y>H+60||b.x<-60||b.x>W+60) return;
+  if(b.y<-80||b.y>H+80||b.x<-80||b.x>W+80) return;
   const bx=b.x,by=b.y;
-  const evo=weaponEvolved; // v7.0: 进化状态
+  const evo=weaponEvolved;
+
+  // v7.1: 所有玩家子弹增加明显拖尾
+  const bspd=Math.sqrt(b.vx*b.vx+b.vy*b.vy)||1;
+  const tLen=Math.min(bspd*0.08,40);
+  const tnx=-b.vx/bspd,tny=-b.vy/bspd;
+
   if(b.type==='laser'){
     const w=b.w,l=b.l;
+    // 拖尾: 光束后继续向后延伸
+    if(tLen>4){
+      const tg=ctx.createLinearGradient(bx,by-l,bx,by-l-tLen);
+      tg.addColorStop(0,'rgba(255,80,80,0.6)');tg.addColorStop(1,'rgba(255,0,0,0)');
+      ctx.fillStyle=tg;ctx.fillRect(bx-w/2,by-l-tLen,w,tLen);
+    }
     const g=ctx.createLinearGradient(bx,by,bx,by-l);
     if(evo){g.addColorStop(0,'#fff');g.addColorStop(.1,'#ff0');g.addColorStop(.3,'#f80');g.addColorStop(.7,'#f44');g.addColorStop(1,'rgba(255,0,0,0)');}
     else {g.addColorStop(0,'#fff');g.addColorStop(.15,'#f44');g.addColorStop(.5,'#f22');g.addColorStop(1,'rgba(255,0,0,0)');}
     ctx.fillStyle=g;ctx.fillRect(bx-w/2,by-l,w,l);
-    if(evo){ctx.shadowColor='#f80';ctx.shadowBlur=12;}
-    ctx.fillStyle=evo?'rgba(255,200,80,0.7)':'rgba(255,80,80,0.6)';ctx.fillRect(bx-1,by-l,2,l);
-    ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1;
+    ctx.shadowColor=evo?'#f80':'#f44';ctx.shadowBlur=evo?14:8;
+    ctx.fillStyle=evo?'rgba(255,200,80,0.8)':'rgba(255,80,80,0.7)';ctx.fillRect(bx-1.5,by-l,3,l);
+    ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.5;
     ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx,by-l);ctx.stroke();
-    if(evo) ctx.shadowBlur=0;
+    ctx.shadowBlur=0;
   } else if(b.type==='refract'){
-    if(evo){ctx.shadowColor='#0f0';ctx.shadowBlur=10;}
+    if(tLen>4){
+      ctx.globalAlpha=0.45;ctx.strokeStyle='#0f0';ctx.lineWidth=3;
+      ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+tnx*tLen,by+tny*tLen);ctx.stroke();ctx.globalAlpha=1;
+    }
+    ctx.shadowColor='#0f0';ctx.shadowBlur=evo?12:8;
     ctx.fillStyle=evo?'#8f8':'#0f0';ctx.beginPath();
-    for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6,r=evo?7.5:6;if(i===0)ctx.moveTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);else ctx.lineTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);}
+    for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6,r=evo?8:6.5;if(i===0)ctx.moveTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);else ctx.lineTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);}
     ctx.closePath();ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,evo?3.5:2.5,0,Math.PI*2);ctx.fill();
-    if(evo) ctx.shadowBlur=0;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,evo?4:3,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
   } else if(b.type==='homing'){
-    if(evo){ctx.shadowColor='#ff0';ctx.shadowBlur=10;}
-    ctx.fillStyle=evo?'#ff8':'#ff0';ctx.beginPath();ctx.moveTo(bx,by-(evo?10:8));ctx.lineTo(bx+4,by);ctx.lineTo(bx+2,by+(evo?10:8));ctx.lineTo(bx-2,by+(evo?10:8));ctx.lineTo(bx-4,by);ctx.closePath();ctx.fill();
-    ctx.fillStyle=evo?'#fa0':'#f80';ctx.beginPath();ctx.arc(bx,by,evo?4:3,0,Math.PI*2);ctx.fill();
-    if(evo) ctx.shadowBlur=0;
+    if(tLen>4){
+      ctx.globalAlpha=0.4;ctx.strokeStyle='#ff0';ctx.lineWidth=3;
+      ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+tnx*tLen,by+tny*tLen);ctx.stroke();ctx.globalAlpha=1;
+    }
+    ctx.shadowColor='#ff0';ctx.shadowBlur=evo?12:8;
+    ctx.fillStyle=evo?'#ff8':'#ff0';ctx.beginPath();ctx.moveTo(bx,by-(evo?11:9));ctx.lineTo(bx+4.5,by);ctx.lineTo(bx+2.5,by+(evo?11:9));ctx.lineTo(bx-2.5,by+(evo?11:9));ctx.lineTo(bx-4.5,by);ctx.closePath();ctx.fill();
+    ctx.fillStyle=evo?'#fa0':'#f80';ctx.beginPath();ctx.arc(bx,by,evo?4.5:3.5,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
   } else {
-    // v7.0: 散射弹进化后更亮更大
-    if(evo){ctx.shadowColor='#0cf';ctx.shadowBlur=8;}
+    // spread散射弹
+    if(tLen>4){
+      ctx.globalAlpha=0.45;ctx.strokeStyle=evo?'#8ff':'#0cf';ctx.lineWidth=3.5;
+      ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+tnx*tLen,by+tny*tLen);ctx.stroke();ctx.globalAlpha=1;
+    }
+    ctx.shadowColor='#0cf';ctx.shadowBlur=evo?12:8;
     ctx.fillStyle=evo?'#8ff':'#0cf';
-    const sz=evo?12:10;
-    ctx.beginPath();ctx.moveTo(bx,by-sz);ctx.lineTo(bx+3,by-2);ctx.lineTo(bx+3,by+6);ctx.lineTo(bx,by+sz);ctx.lineTo(bx-3,by+6);ctx.lineTo(bx-3,by-2);ctx.closePath();ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,0.6)';ctx.fillRect(bx-1,by-(evo?10:8),2,evo?20:14);
-    if(evo) ctx.shadowBlur=0;
+    const sz=evo?13:11;
+    ctx.beginPath();ctx.moveTo(bx,by-sz);ctx.lineTo(bx+3.5,by-2);ctx.lineTo(bx+3.5,by+6);ctx.lineTo(bx,by+sz);ctx.lineTo(bx-3.5,by+6);ctx.lineTo(bx-3.5,by-2);ctx.closePath();ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.7)';ctx.fillRect(bx-1,by-(evo?11:9),2,evo?22:16);
+    ctx.shadowBlur=0;
   }
 }
 
@@ -1932,70 +1956,75 @@ function enemyShoot(e){
 }
 
 function drawEnemyBullet(b){
-  if(b.y<-50||b.y>H+50||b.x<-50||b.x>W+50) return;
+  if(b.y<-60||b.y>H+60||b.x<-60||b.x>W+60) return;
   const bt=b.bulletType||'normal';
   const cfg=ENEMY_BULLET_TYPES[bt]||ENEMY_BULLET_TYPES['normal'];
   const lowDetail=enemyBullets.length>_adaptMaxEB*.75;
   const bx=b.x,by=b.y;
 
-  // v7.0: 所有子弹增加运动轨迹拖尾 — 解决"射出一半消失"问题
+  // v7.1: 明显的运动拖尾 — 所有子弹共用一条粗拖尾线
   const spd=Math.sqrt(b.vx*b.vx+b.vy*b.vy)||180;
-  if(spd>30){
-    const trailLen=Math.min(spd*.08,35); // 拖尾长度根据速度自适应，最长35px
-    const nx=-b.vx/spd,ny=-b.vy/spd;
-    ctx.globalAlpha=lowDetail?.12:.22;
-    ctx.strokeStyle=cfg.trail||cfg.glow;
-    ctx.lineWidth=cfg.size||3;
-    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+nx*trailLen,by+ny*trailLen);ctx.stroke();
-    ctx.globalAlpha=1;
-  }
+  const nx=-b.vx/spd,ny=-b.vy/spd;
 
   if(bt==='laser'){
-    // v7.0: 激光束轨迹从5px延长到16-24px（解决"射出一半消失"）
-    const beamLen=Math.min(spd*.12,28);
-    ctx.strokeStyle=cfg.color;ctx.lineWidth=cfg.size;ctx.globalAlpha=0.85;
-    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+b.vx/spd*beamLen,by+b.vy/spd*beamLen);ctx.stroke();
-    ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1;ctx.globalAlpha=0.6;
-    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+b.vx/spd*beamLen*0.6,by+b.vy/spd*beamLen*0.6);ctx.stroke();
+    // laser: 长光束拖尾向后延伸
+    const beamLen=Math.min(spd*0.18,55);
+    ctx.strokeStyle=cfg.color;ctx.lineWidth=3;ctx.globalAlpha=0.9;
+    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+nx*beamLen,by+ny*beamLen);ctx.stroke();
+    ctx.strokeStyle='rgba(255,100,100,0.6)';ctx.lineWidth=5;ctx.globalAlpha=0.5;
+    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+nx*beamLen*0.7,by+ny*beamLen*0.7);ctx.stroke();
+    ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.globalAlpha=0.8;
+    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+nx*beamLen*0.5,by+ny*beamLen*0.5);ctx.stroke();
     ctx.globalAlpha=1;
+    // 核心亮点
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,2,0,Math.PI*2);ctx.fill();
   } else if(bt==='fast'){
-    // v7.0: 快速弹增加4个拖尾菱形（原来3个），保留更久
-    const fspd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
-    const fnx=fspd>0.1?b.vx/fspd:0,fny=fspd>0.1?b.vy/fspd:0;
+    // fast: 通用粗拖尾 + 多个菱形残影
+    const tLen=Math.min(spd*0.14,45);
+    ctx.globalAlpha=0.5;ctx.strokeStyle=cfg.glow;ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+nx*tLen,by+ny*tLen);ctx.stroke();ctx.globalAlpha=1;
+    const fnx=b.vx/spd,fny=b.vy/spd;
     for(let t=1;t<=4;t++){
       const tx=bx-fnx*t*7,ty=by-fny*t*7;
-      const alpha=1-t*0.18,sz=2.5+t*1.2;
+      const alpha=1-t*0.15,sz=3+t*1.3;
       ctx.globalAlpha=alpha;ctx.fillStyle=cfg.glow;
       ctx.beginPath();ctx.moveTo(tx,ty-sz);ctx.lineTo(tx+sz*0.5,ty);ctx.lineTo(tx,ty+sz);ctx.lineTo(tx-sz*0.5,ty);ctx.closePath();ctx.fill();
     }
     ctx.fillStyle='#fff';ctx.globalAlpha=1;
-    ctx.beginPath();ctx.moveTo(bx,by-7);ctx.lineTo(bx+2.5,by);ctx.lineTo(bx,by+7);ctx.lineTo(bx-2.5,by);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(bx,by-7);ctx.lineTo(bx+3,by);ctx.lineTo(bx,by+7);ctx.lineTo(bx-3,by);ctx.closePath();ctx.fill();
     ctx.fillStyle='#fff';ctx.fillRect(bx-.5,by-5,1,10);
   } else if(bt==='wave'){
     const wt=(b._wt||0)*6;
     const wobbleX=Math.sin(wt)*2.5,wobbleY=Math.cos(wt*1.3)*1.5;
     const wx=bx+wobbleX,wy=by+wobbleY;
+    // wave拖尾
+    const tLen=Math.min(spd*0.12,40);
+    ctx.globalAlpha=0.4;ctx.strokeStyle=cfg.glow;ctx.lineWidth=4;
+    ctx.beginPath();ctx.moveTo(wx,wy);ctx.lineTo(wx+nx*tLen,wy+ny*tLen);ctx.stroke();ctx.globalAlpha=1;
     ctx.fillStyle=cfg.glow;ctx.beginPath();
-    ctx.ellipse(wx,wy,cfg.size*1.6,cfg.size*0.7,wt*0.5,0,Math.PI*2);ctx.fill();
+    ctx.ellipse(wx,wy,cfg.size*1.7,cfg.size*0.75,wt*0.5,0,Math.PI*2);ctx.fill();
     ctx.fillStyle=cfg.inner;ctx.beginPath();
-    ctx.ellipse(wx,wy,cfg.size*0.4,cfg.size*0.25,wt*0.5,0,Math.PI*2);ctx.fill();
-    // v7.0: lowDetail也保留拖尾（只是缩短）
-    ctx.globalAlpha=lowDetail?.22:.35;ctx.fillStyle=cfg.glow;
-    ctx.beginPath();ctx.ellipse(wx-b.vx*.008,wy-b.vy*.008,cfg.size*1.1,cfg.size*0.5,wt*0.5,0,Math.PI*2);ctx.fill();
+    ctx.ellipse(wx,wy,cfg.size*0.45,cfg.size*0.28,wt*0.5,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=lowDetail?.25:.45;ctx.fillStyle=cfg.glow;
+    ctx.beginPath();ctx.ellipse(wx-b.vx*.008,wy-b.vy*.008,cfg.size*1.15,cfg.size*0.55,wt*0.5,0,Math.PI*2);ctx.fill();
     ctx.globalAlpha=1;
   } else if(bt==='orb'){
+    // orb拖尾
+    const tLen=Math.min(spd*0.12,40);
+    ctx.globalAlpha=0.45;ctx.strokeStyle=cfg.glow;ctx.lineWidth=4;
+    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+nx*tLen,by+ny*tLen);ctx.stroke();ctx.globalAlpha=1;
     const or=cfg.size,rot=b._rot||0;
-    ctx.strokeStyle=cfg.color;ctx.lineWidth=2;ctx.globalAlpha=0.7;
+    ctx.strokeStyle=cfg.color;ctx.lineWidth=2.5;ctx.globalAlpha=0.85;
     ctx.beginPath();
     for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6+rot;const px=bx+Math.cos(a)*or,py=by+Math.sin(a)*or;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
     ctx.closePath();ctx.stroke();
-    ctx.fillStyle=cfg.glow;ctx.globalAlpha=0.35;ctx.fill();ctx.globalAlpha=0.7;
+    ctx.fillStyle=cfg.glow;ctx.globalAlpha=0.45;ctx.fill();ctx.globalAlpha=0.85;
     const ir=or*0.55;
-    ctx.strokeStyle=cfg.color;ctx.lineWidth=1;ctx.globalAlpha=0.5;
+    ctx.strokeStyle=cfg.color;ctx.lineWidth=1.2;ctx.globalAlpha=0.6;
     ctx.beginPath();
     for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6-rot*1.5;const px=bx+Math.cos(a)*ir,py=by+Math.sin(a)*ir;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
     ctx.closePath();ctx.stroke();
-    ctx.fillStyle='rgba(255,255,255,0.7)';ctx.globalAlpha=1;ctx.beginPath();ctx.arc(bx,by,2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.globalAlpha=1;ctx.beginPath();ctx.arc(bx,by,2.2,0,Math.PI*2);ctx.fill();
   } else if(bt==='explosive'){
     const pulse=lowDetail?1:1+Math.sin(b.life*15)*.2;
     const er=cfg.size*pulse,spikes=6,erot=b._rot||0;
@@ -2007,12 +2036,12 @@ function drawEnemyBullet(b){
       if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
     }
     ctx.closePath();ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,2.2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,2.5,0,Math.PI*2);ctx.fill();
     if(!lowDetail){
-      ctx.strokeStyle='#ff0';ctx.lineWidth=1;ctx.setLineDash([2,2]);
+      ctx.strokeStyle='#ff0';ctx.lineWidth=1.2;ctx.setLineDash([2,2]);
       ctx.beginPath();
       for(let i=0;i<spikes*2;i++){
-        const r=i%2===0?er+2:er*0.5+2;
+        const r=i%2===0?er+2.5:er*0.5+2.5;
         const a=i*Math.PI/spikes-Math.PI/2+erot*0.3;
         const px=bx+Math.cos(a)*r,py=by+Math.sin(a)*r;
         if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
@@ -2022,10 +2051,14 @@ function drawEnemyBullet(b){
   } else if(bt==='homing'){
     const hspd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
     const hx=hspd>0.1?b.vx/hspd:0,hy=hspd>0.1?b.vy/hspd:0;
-    // v7.0: 增加3个箭头拖尾
+    // homing通用拖尾
+    const tLen=Math.min(spd*0.14,45);
+    ctx.globalAlpha=0.45;ctx.strokeStyle=cfg.glow;ctx.lineWidth=3.5;
+    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx-hx*tLen,by-hy*tLen);ctx.stroke();ctx.globalAlpha=1;
+    // 箭头残影
     for(let t=1;t<=3;t++){
       const tx=bx-hx*t*5,ty=by-hy*t*5;
-      const alpha=1-t*0.25,sz=3+t*1.2;
+      const alpha=1-t*0.2,sz=3.5+t*1.3;
       ctx.globalAlpha=alpha;ctx.fillStyle=cfg.glow;
       ctx.beginPath();ctx.moveTo(tx,ty-sz);ctx.lineTo(tx+sz*0.6,ty+sz*0.5);ctx.lineTo(tx-sz*0.6,ty+sz*0.5);ctx.closePath();ctx.fill();
     }
@@ -2035,12 +2068,16 @@ function drawEnemyBullet(b){
     ctx.lineTo(bx+hy*4,hx*-4+by-4);
     ctx.lineTo(bx-hy*4,hx*4+by-4);
     ctx.closePath();ctx.fill();
-    ctx.strokeStyle='#ff0';ctx.lineWidth=1;ctx.globalAlpha=0.7;
+    ctx.strokeStyle='#ff0';ctx.lineWidth=1.2;ctx.globalAlpha=0.75;
     ctx.stroke();ctx.globalAlpha=1;
-    ctx.fillStyle=cfg.inner;ctx.beginPath();ctx.arc(bx,by,1.8,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=cfg.inner;ctx.beginPath();ctx.arc(bx,by,2,0,Math.PI*2);ctx.fill();
   } else {
-    ctx.fillStyle=cfg.glow;ctx.beginPath();ctx.arc(bx,by,cfg.size,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle=cfg.inner;ctx.beginPath();ctx.arc(bx,by-0.8,2,0,Math.PI*2);ctx.fill();
+    // normal: 粗拖尾 + 亮核心
+    const tLen=Math.min(spd*0.14,45);
+    ctx.globalAlpha=0.5;ctx.strokeStyle=cfg.glow;ctx.lineWidth=4;
+    ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(bx+nx*tLen,by+ny*tLen);ctx.stroke();ctx.globalAlpha=1;
+    ctx.fillStyle=cfg.glow;ctx.beginPath();ctx.arc(bx,by,cfg.size*1.1,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=cfg.inner;ctx.beginPath();ctx.arc(bx,by-0.8,2.5,0,Math.PI*2);ctx.fill();
   }
 }
 
