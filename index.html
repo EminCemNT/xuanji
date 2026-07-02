@@ -293,7 +293,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v7.7';
+const GAME_VERSION = 'v7.8';
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
 // v6.8: story帧驱动重写+武器升级去重
@@ -890,11 +890,11 @@ const WEAPON_TYPES = {
   laser: {
     name:'激光炮', icon:'💠', color:'#f44', desc:'射出穿透光柱',
     levels:[
-      {width:8,length:180,speed:1600,dmg:10,life:.32},
-      {width:10,length:220,speed:1800,dmg:14,life:.33},
-      {width:12,length:260,speed:2000,dmg:18,life:.34},
-      {width:14,length:300,speed:2200,dmg:24,life:.35},
-      {width:16,length:340,speed:2400,dmg:30,life:.36}
+      {width:8,length:180,speed:1600,dmg:10,life:1.5},
+      {width:10,length:220,speed:1800,dmg:14,life:1.6},
+      {width:12,length:260,speed:2000,dmg:18,life:1.7},
+      {width:14,length:300,speed:2200,dmg:24,life:1.8},
+      {width:16,length:340,speed:2400,dmg:30,life:2.0}
     ]
   },
   refract: {
@@ -1947,7 +1947,7 @@ function enemyShoot(e){
     }
   } else {
     // 小兵射击概率随难度递进
-    const smallShootProb=Math.min(.9, .25 + dScale*.08);
+    const smallShootProb=Math.min(.95, .55 + dScale*.06);
     if(Math.random()<smallShootProb) enemyBullets.push({x:e.x,y:e.y+8,vx:0,vy:180*bsm,life:3,alive:true,bulletType:'normal'});
     if(dScale>2.5&&Math.random()<.3){
       enemyBullets.push({x:e.x,y:e.y+8,vx:(Math.random()-.5)*80*bsm,vy:150*bsm,life:2.5,alive:true,bulletType:'wave'});
@@ -2913,7 +2913,7 @@ function update(now){
       }
     b.life-=dt;
     // v6.10: 防御NaN
-    if(!isFinite(b.x)||!isFinite(b.y)||!isFinite(b.life)||b.y>H+30||b.y<-30||b.x<-30||b.x>W+30||b.life<=0||i>=MAX_PLAYER_BULLETS){playerBullets.splice(i,1);}
+    if(!isFinite(b.x)||!isFinite(b.y)||!isFinite(b.life)||b.y>H+200||b.y<-200||b.x<-200||b.x>W+200||b.life<=0||i>=MAX_PLAYER_BULLETS){playerBullets.splice(i,1);}
   }
   // 敌弹更新 + 擦弹检测 + 特殊行为（原地清理）
   const MAX_ENEMY_BULLETS=_adaptMaxEB;
@@ -2925,9 +2925,9 @@ function update(now){
       b._rot=(b._rot||0)+dt*(b.bulletType==='orb'?2.5:4);
     }
     // v6.10: 防御NaN — NaN子弹永远不满足删除条件，会无限堆积
-    if(!isFinite(b.x)||!isFinite(b.y)||!isFinite(b.life)||b.y>H+30||b.y<-30||b.x<-30||b.x>W+30||b.life<=0||i>=MAX_ENEMY_BULLETS){
+    if(!isFinite(b.x)||!isFinite(b.y)||!isFinite(b.life)||b.y>H+200||b.y<-200||b.x<-200||b.x>W+200||b.life<=0||i>=MAX_ENEMY_BULLETS){
       // 爆炸弹死亡时散开
-      if((b.bulletType==='explosive'||b.willSplit)&&b.life<=0&&b.y<H+30&&b.y>-30&&b.x<W+30&&b.x>-30){
+      if((b.bulletType==='explosive'||b.willSplit)&&b.life<=0&&b.y<H+200&&b.y>-200&&b.x<W+200&&b.x>-200){
         for(let j=0;j<6;j++){
           const a=j*Math.PI*2/6;
           if(enemyBullets.length<MAX_ENEMY_BULLETS) enemyBullets.push({x:b.x,y:b.y,vx:Math.cos(a)*120,vy:Math.sin(a)*60+80,life:2.5,alive:true,bulletType:'normal'});
