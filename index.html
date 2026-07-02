@@ -293,7 +293,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v7.9';
+const GAME_VERSION = 'v7.11';
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
 // v6.8: story帧驱动重写+武器升级去重
@@ -1585,19 +1585,19 @@ function shoot(p){
 }
 function drawPlayerBullet(b){
   if(b.y<-100||b.y>H+100||b.x<-100||b.x>W+100) return;
+  ctx.save();
   const bx=b.x,by=b.y;
   const evo=weaponEvolved;
   const bspd=Math.sqrt(b.vx*b.vx+b.vy*b.vy)||1;
   const tnx=-b.vx/bspd,tny=-b.vy/bspd;
 
-  // 渐变填充拖尾：比stroke更醒目，宽度克制
+  // 渐变填充拖尾：宽度加大确保可见
   function drawGradTrail(color0,len,halfW){
     if(len<3) return;
     const ex=bx+tnx*len,ey=by+tny*len;
     const g=ctx.createLinearGradient(bx,by,ex,ey);
     g.addColorStop(0,color0);g.addColorStop(1,'rgba(0,0,0,0)');
     ctx.fillStyle=g;
-    // 垂直于运动方向的宽度
     const px=-tny*halfW,py=tnx*halfW;
     ctx.beginPath();
     ctx.moveTo(bx-px,by-py);ctx.lineTo(bx+px,by+py);
@@ -1607,46 +1607,40 @@ function drawPlayerBullet(b){
 
   if(b.type==='laser'){
     const w=b.w,l=b.l;
-    // 激光向后渐变拖尾：固定40px+速度加成，最长70px
     const tLen=Math.min(40+bspd*0.03,70);
-    if(tLen>3) drawGradTrail(evo?'rgba(255,150,0,0.8)':'rgba(255,60,60,0.8)',tLen,Math.max(w*0.6,3));
+    if(tLen>3) drawGradTrail(evo?'rgba(255,150,0,0.9)':'rgba(255,60,60,0.9)',tLen,Math.max(w*0.7,4));
     const g=ctx.createLinearGradient(bx,by,bx,by-l);
     if(evo){g.addColorStop(0,'#fff');g.addColorStop(.1,'#ff0');g.addColorStop(.3,'#f80');g.addColorStop(.7,'#f44');g.addColorStop(1,'rgba(255,0,0,0)');}
     else{g.addColorStop(0,'#fff');g.addColorStop(.15,'#f44');g.addColorStop(.5,'#f22');g.addColorStop(1,'rgba(255,0,0,0)');}
     ctx.fillStyle=g;ctx.fillRect(bx-w/2,by-l,w,l);
-    ctx.shadowColor=evo?'#f80':'#f44';ctx.shadowBlur=evo?14:10;
+    ctx.shadowColor=evo?'#f80':'#f44';ctx.shadowBlur=evo?18:14;
     ctx.fillStyle=evo?'rgba(255,200,80,0.95)':'rgba(255,80,80,0.9)';ctx.fillRect(bx-1.5,by-l,3,l);
-    ctx.shadowBlur=0;
   } else if(b.type==='refract'){
-    // 固定35px+速度加成
     const tLen=Math.min(35+bspd*0.04,65);
-    drawGradTrail(evo?'rgba(100,255,100,0.8)':'rgba(0,230,0,0.75)',tLen,2.5);
-    ctx.shadowColor='#0f0';ctx.shadowBlur=evo?12:8;
+    drawGradTrail(evo?'rgba(100,255,100,0.9)':'rgba(0,230,0,0.85)',tLen,4);
+    ctx.shadowColor='#0f0';ctx.shadowBlur=evo?16:12;
     ctx.fillStyle=evo?'#8f8':'#0f0';ctx.beginPath();
-    for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6,r=evo?8:6;if(i===0)ctx.moveTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);else ctx.lineTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);}
+    for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6,r=evo?9:7;if(i===0)ctx.moveTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);else ctx.lineTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);}
     ctx.closePath();ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,evo?3.5:2.5,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,evo?4:3,0,Math.PI*2);ctx.fill();
   } else if(b.type==='homing'){
-    // 固定35px+速度加成
     const tLen=Math.min(35+bspd*0.04,65);
-    drawGradTrail(evo?'rgba(255,255,80,0.8)':'rgba(255,220,0,0.75)',tLen,2.5);
-    ctx.shadowColor='#ff0';ctx.shadowBlur=evo?12:8;
-    ctx.fillStyle=evo?'#ff8':'#ff0';ctx.beginPath();ctx.moveTo(bx,by-(evo?11:9));ctx.lineTo(bx+4,by);ctx.lineTo(bx+3,by+(evo?11:9));ctx.lineTo(bx-3,by+(evo?11:9));ctx.lineTo(bx-4,by);ctx.closePath();ctx.fill();
-    ctx.fillStyle=evo?'#fa0':'#f80';ctx.beginPath();ctx.arc(bx,by,evo?4.5:3.5,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,2.5,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;
+    drawGradTrail(evo?'rgba(255,255,80,0.9)':'rgba(255,220,0,0.85)',tLen,4);
+    ctx.shadowColor='#ff0';ctx.shadowBlur=evo?16:12;
+    ctx.fillStyle=evo?'#ff8':'#ff0';ctx.beginPath();ctx.moveTo(bx,by-(evo?12:10));ctx.lineTo(bx+4,by);ctx.lineTo(bx+3,by+(evo?12:10));ctx.lineTo(bx-3,by+(evo?12:10));ctx.lineTo(bx-4,by);ctx.closePath();ctx.fill();
+    ctx.fillStyle=evo?'#fa0':'#f80';ctx.beginPath();ctx.arc(bx,by,evo?5:4,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();
   } else {
-    // spread散射弹 — 固定35px+速度加成
+    // spread散射弹
     const tLen=Math.min(35+bspd*0.04,65);
-    drawGradTrail(evo?'rgba(160,255,255,0.85)':'rgba(0,210,255,0.8)',tLen,2.5);
-    ctx.shadowColor=evo?'#8ff':'#0cf';ctx.shadowBlur=evo?12:8;
+    drawGradTrail(evo?'rgba(160,255,255,0.95)':'rgba(0,210,255,0.9)',tLen,4);
+    ctx.shadowColor=evo?'#8ff':'#0cf';ctx.shadowBlur=evo?16:12;
     ctx.fillStyle=evo?'#8ff':'#0cf';
-    const sz=evo?11:9;
+    const sz=evo?12:10;
     ctx.beginPath();ctx.moveTo(bx,by-sz);ctx.lineTo(bx+3,by-2);ctx.lineTo(bx+3,by+6);ctx.lineTo(bx,by+sz);ctx.lineTo(bx-3,by+6);ctx.lineTo(bx-3,by-2);ctx.closePath();ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by-1,2.5,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by-1,3,0,Math.PI*2);ctx.fill();
   }
+  ctx.restore();
 }
 
 // ==================== 敌机 ====================
@@ -1679,9 +1673,9 @@ function createEnemy(type='small'){
   const zone=getZone(heightM);
   const dScale=getDynamicScale();
   const types={
-    small:{w:22,h:24,hp:1,score:100,speed:150,shootT:1.5},
-    medium:{w:36,h:38,hp:3,score:300,speed:110,shootT:1.0},
-    large:{w:52,h:56,hp:8,score:500,speed:70,shootT:0.6},
+    small:{w:22,h:24,hp:1,score:100,speed:150,shootT:1.0},
+    medium:{w:36,h:38,hp:3,score:300,speed:110,shootT:0.7},
+    large:{w:52,h:56,hp:8,score:500,speed:70,shootT:0.4},
     boss:{w:80,h:90,hp:50,score:2000,speed:40,shootT:0.6}
   };
   const t=types[type];
@@ -1946,9 +1940,8 @@ function enemyShoot(e){
       }
     }
   } else {
-    // 小兵射击概率随难度递进
-    const smallShootProb=Math.min(.95, .55 + dScale*.06);
-    if(Math.random()<smallShootProb) enemyBullets.push({x:e.x,y:e.y+8,vx:0,vy:180*bsm,life:3,alive:true,bulletType:'normal'});
+    // 小兵必定射击，不再随机跳过
+    enemyBullets.push({x:e.x,y:e.y+8,vx:0,vy:180*bsm,life:3,alive:true,bulletType:'normal'});
     if(dScale>2.5&&Math.random()<.3){
       enemyBullets.push({x:e.x,y:e.y+8,vx:(Math.random()-.5)*80*bsm,vy:150*bsm,life:2.5,alive:true,bulletType:'wave'});
     }
@@ -1961,6 +1954,7 @@ function enemyShoot(e){
 
 function drawEnemyBullet(b){
   if(b.y<-100||b.y>H+100||b.x<-100||b.x>W+100) return;
+  ctx.save();
   const bt=b.bulletType||'normal';
   const cfg=ENEMY_BULLET_TYPES[bt]||ENEMY_BULLET_TYPES['normal'];
   const lowDetail=enemyBullets.length>_adaptMaxEB*.75;
@@ -1969,7 +1963,6 @@ function drawEnemyBullet(b){
   const spd=Math.sqrt(b.vx*b.vx+b.vy*b.vy)||180;
   const nx=-b.vx/spd,ny=-b.vy/spd;
 
-  // 渐变fill拖尾，比stroke更醒目
   function drawGradTrail(color0,len,halfW){
     if(len<3) return;
     const ex=bx+nx*len,ey=by+ny*len;
@@ -1984,17 +1977,14 @@ function drawEnemyBullet(b){
   }
 
   if(bt==='laser'){
-    // laser：固定50px+速度加成，最长80px
     const beamLen=Math.min(50+spd*0.05,80);
-    drawGradTrail(cfg.color,beamLen,3);
-    drawGradTrail('rgba(255,200,200,0.55)',beamLen*0.5,1.5);
-    ctx.shadowColor=cfg.color;ctx.shadowBlur=10;
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;
+    drawGradTrail(cfg.color,beamLen,4);
+    drawGradTrail('rgba(255,200,200,0.6)',beamLen*0.5,2);
+    ctx.shadowColor=cfg.color;ctx.shadowBlur=12;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,3.5,0,Math.PI*2);ctx.fill();
   } else if(bt==='fast'){
-    // fast：固定35px+速度加成，确保慢速时也有足够拖尾
     const tLen=Math.min(35+spd*0.06,60);
-    drawGradTrail(cfg.glow,tLen,2);
+    drawGradTrail(cfg.glow,tLen,3);
     const fnx=b.vx/spd,fny=b.vy/spd;
     for(let t=1;t<=3;t++){
       const tx=bx-fnx*t*6,ty=by-fny*t*6;
@@ -2002,30 +1992,26 @@ function drawEnemyBullet(b){
       ctx.globalAlpha=alpha;ctx.fillStyle=cfg.glow;
       ctx.beginPath();ctx.moveTo(tx,ty-sz);ctx.lineTo(tx+sz*0.5,ty);ctx.lineTo(tx,ty+sz);ctx.lineTo(tx-sz*0.5,ty);ctx.closePath();ctx.fill();
     }
-    ctx.shadowColor='#fff';ctx.shadowBlur=8;ctx.globalAlpha=1;
+    ctx.shadowColor='#fff';ctx.shadowBlur=10;ctx.globalAlpha=1;
     ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(bx,by-6);ctx.lineTo(bx+2.5,by);ctx.lineTo(bx,by+6);ctx.lineTo(bx-2.5,by);ctx.closePath();ctx.fill();
-    ctx.shadowBlur=0;
   } else if(bt==='wave'){
     const wt=(b._wt||0)*6;
     const wobbleX=Math.sin(wt)*2.5,wobbleY=Math.cos(wt*1.3)*1.5;
     const wx=bx+wobbleX,wy=by+wobbleY;
-    // wave：固定30px+速度加成
     const tLen=Math.min(30+spd*0.07,55);
-    drawGradTrail(cfg.glow,tLen,2.5);
-    ctx.shadowColor=cfg.color;ctx.shadowBlur=8;
+    drawGradTrail(cfg.glow,tLen,3.5);
+    ctx.shadowColor=cfg.color;ctx.shadowBlur=10;
     ctx.fillStyle=cfg.glow;ctx.beginPath();
     ctx.ellipse(wx,wy,cfg.size*1.5,cfg.size*0.7,wt*0.5,0,Math.PI*2);ctx.fill();
     ctx.fillStyle=cfg.inner;ctx.beginPath();
     ctx.ellipse(wx,wy,cfg.size*0.4,cfg.size*0.25,wt*0.5,0,Math.PI*2);ctx.fill();
     ctx.globalAlpha=lowDetail?.25:.4;ctx.fillStyle=cfg.glow;
     ctx.beginPath();ctx.ellipse(wx-b.vx*.008,wy-b.vy*.008,cfg.size*1.0,cfg.size*0.5,wt*0.5,0,Math.PI*2);ctx.fill();
-    ctx.globalAlpha=1;ctx.shadowBlur=0;
   } else if(bt==='orb'){
-    // orb：固定30px+速度加成
     const tLen=Math.min(30+spd*0.07,55);
-    drawGradTrail(cfg.glow,tLen,2.5);
+    drawGradTrail(cfg.glow,tLen,3.5);
     const or=cfg.size,rot=b._rot||0;
-    ctx.shadowColor=cfg.color;ctx.shadowBlur=8;
+    ctx.shadowColor=cfg.color;ctx.shadowBlur=10;
     ctx.strokeStyle=cfg.color;ctx.lineWidth=2;ctx.globalAlpha=0.85;
     ctx.beginPath();
     for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6+rot;const px=bx+Math.cos(a)*or,py=by+Math.sin(a)*or;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
@@ -2036,12 +2022,11 @@ function drawEnemyBullet(b){
     ctx.beginPath();
     for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6-rot*1.5;const px=bx+Math.cos(a)*ir,py=by+Math.sin(a)*ir;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
     ctx.closePath();ctx.stroke();
-    ctx.fillStyle='#fff';ctx.globalAlpha=1;ctx.beginPath();ctx.arc(bx,by,2.5,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;
+    ctx.fillStyle='#fff';ctx.globalAlpha=1;ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();
   } else if(bt==='explosive'){
     const pulse=lowDetail?1:1+Math.sin(b.life*15)*.2;
     const er=cfg.size*pulse,spikes=6,erot=b._rot||0;
-    ctx.shadowColor=cfg.color;ctx.shadowBlur=8;
+    ctx.shadowColor=cfg.color;ctx.shadowBlur=10;
     ctx.fillStyle=cfg.glow;ctx.beginPath();
     for(let i=0;i<spikes*2;i++){
       const r=i%2===0?er:er*0.5;
@@ -2050,7 +2035,7 @@ function drawEnemyBullet(b){
       if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
     }
     ctx.closePath();ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,2.5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();
     if(!lowDetail){
       ctx.strokeStyle='#ff0';ctx.lineWidth=1;ctx.setLineDash([2,2]);
       ctx.beginPath();
@@ -2062,20 +2047,18 @@ function drawEnemyBullet(b){
       }
       ctx.closePath();ctx.stroke();ctx.setLineDash([]);
     }
-    ctx.shadowBlur=0;
   } else if(bt==='homing'){
     const hspd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
     const hx=hspd>0.1?b.vx/hspd:0,hy=hspd>0.1?b.vy/hspd:0;
-    // homing：固定35px+速度加成
     const tLen=Math.min(35+spd*0.06,60);
-    drawGradTrail(cfg.glow,tLen,2.5);
+    drawGradTrail(cfg.glow,tLen,3.5);
     for(let t=1;t<=2;t++){
       const tx=bx-hx*t*5,ty=by-hy*t*5;
       const alpha=1-t*0.22,sz=3+t;
       ctx.globalAlpha=alpha;ctx.fillStyle=cfg.glow;
       ctx.beginPath();ctx.moveTo(tx,ty-sz);ctx.lineTo(tx+sz*0.6,ty+sz*0.5);ctx.lineTo(tx-sz*0.6,ty+sz*0.5);ctx.closePath();ctx.fill();
     }
-    ctx.shadowColor=cfg.color;ctx.shadowBlur=8;ctx.globalAlpha=1;
+    ctx.shadowColor=cfg.color;ctx.shadowBlur=10;ctx.globalAlpha=1;
     ctx.fillStyle=cfg.glow;ctx.beginPath();
     ctx.moveTo(bx+hx*7,by+hy*7);
     ctx.lineTo(bx+hy*4,hx*-4+by-4);
@@ -2083,17 +2066,15 @@ function drawEnemyBullet(b){
     ctx.closePath();ctx.fill();
     ctx.strokeStyle='#ff0';ctx.lineWidth=1;ctx.globalAlpha=0.7;
     ctx.stroke();ctx.globalAlpha=1;
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,2.5,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();
   } else {
-    // normal: 固定35px+速度加成
     const tLen=Math.min(35+spd*0.06,60);
-    drawGradTrail(cfg.glow,tLen,2.5);
-    ctx.shadowColor=cfg.color;ctx.shadowBlur=8;
-    ctx.fillStyle=cfg.glow;ctx.beginPath();ctx.arc(bx,by,cfg.size,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by-1,2.5,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;
+    drawGradTrail(cfg.glow,tLen,3.5);
+    ctx.shadowColor=cfg.color;ctx.shadowBlur=10;
+    ctx.fillStyle=cfg.glow;ctx.beginPath();ctx.arc(bx,by,cfg.size+1,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by-1,3,0,Math.PI*2);ctx.fill();
   }
+  ctx.restore();
 }
 
 // ==================== 道具 ====================
