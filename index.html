@@ -220,7 +220,7 @@ canvas{display:block;width:100%;height:100%;}
     <button id="btn-start" onclick="startGame()">▶ 开始飞行</button>
     <button id="btn-leaderboard" onclick="showLeaderboard()">🏆 排行榜</button>
     <div class="menu-stats" id="menu-stats"></div>
-    <div class="menu-hint">触屏：拖拽移动 / 点击射击<br>键盘：← → 移动 / 空格射击 / B 炸弹</div>
+    <div class="menu-hint">触屏：拖拽移动 / 点击射击<br>键盘：← → 移动 / 空格射击 / B 炸弹 / P 暂停</div>
   </div>
   <div class="menu-version" id="menu-version"></div>
 </div>
@@ -293,7 +293,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v7.11';
+const GAME_VERSION = 'v8.0';
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
 // v6.8: story帧驱动重写+武器升级去重
@@ -310,6 +310,7 @@ canvas.style.imageRendering = 'auto';
 let W, H;
 let lastTime=0, dt=0;
 let gameRunning=false;
+let gamePaused=false;
 let frameCount=0;
 // FPS自适应降级 — v6.0: 8帧采样+缓和衰减+新局重置
 let _fpsSamples=[], _adaptMaxEB=200, _adaptMaxP=300;
@@ -843,6 +844,58 @@ const BOSS_SKILLS = {
         const cy=dx/dist*Math.sin(a)+dy/dist*Math.cos(a);
         enemyBullets.push({x:e.x,y:e.y,vx:cx*300,vy:cy*300,life:2.5,alive:true,bulletType:'homing'});
       }
+    }}
+  ]
+};
+
+// ==================== Boss进阶技能（第2个Boss后激活）====================
+const BOSS_SKILLS_ADVANCED = {
+  corporate: [
+    {name:'加班地狱', weight:2, cooldown:7, fn(e){ // 旋转螺旋弹幕
+      for(let i=0;i<16;i++){
+        const a=i*Math.PI*2/16+frameCount*.05;
+        enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*120,vy:Math.sin(a)*120+40,life:3,alive:true,bulletType:'wave'});
+      }
+      screenShakeTrauma=Math.max(screenShakeTrauma,.3);
+    }}
+  ],
+  military: [
+    {name:'集束导弹', weight:2, cooldown:8, fn(e){ // 6发追踪导弹齐射
+      for(let i=0;i<6;i++){
+        const a=-Math.PI/2+(i-2.5)*.15;
+        enemyBullets.push({x:e.x+(i-2.5)*8,y:e.y,vx:Math.cos(a)*200,vy:Math.sin(a)*200,life:3,alive:true,bulletType:'homing',isSkill:true});
+      }
+    }}
+  ],
+  alien: [
+    {name:'寄生孢子', weight:2, cooldown:9, fn(e){ // 召唤2个自爆小兵
+      for(let i=0;i<2;i++){
+        const m=createEnemy('small');
+        m.x=e.x+(i-.5)*60;m.y=e.y+20;
+        m.name='寄生孢子';m.hp=2;m.willSplit=true;
+        enemies.push(m);
+      }
+      spawnParticles(e.x,e.y+20,15,'#90f',80,.4,2);
+    }}
+  ],
+  cosmic: [
+    {name:'维度撕裂', weight:2, cooldown:8, fn(e){ // 左右双向弹墙
+      for(let i=0;i<5;i++){
+        enemyBullets.push({x:0,y:H*.2+i*H*.12,vx:200,vy:0,life:2.5,alive:true,bulletType:'fast',isSkill:true});
+        enemyBullets.push({x:W,y:H*.2+i*H*.12,vx:-200,vy:0,life:2.5,alive:true,bulletType:'fast',isSkill:true});
+      }
+      screenShakeTrauma=Math.max(screenShakeTrauma,.25);
+    }}
+  ],
+  void: [
+    {name:'绝对零度', weight:3, cooldown:10, fn(e){ // 大范围弹幕+短暂减速玩家
+      for(let i=0;i<20;i++){
+        const a=i*Math.PI*2/20;
+        enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*150,vy:Math.sin(a)*150,life:3,alive:true,bulletType:'orb',isSkill:true});
+      }
+      if(player.invincible<=0){player.confused=1.5;}
+      screenShakeTrauma=Math.max(screenShakeTrauma,.4);
+      spawnParticles(e.x,e.y,30,'#a4f',150,.6,3);
     }}
   ]
 };
@@ -1539,6 +1592,42 @@ function drawPlayer(p){
   if(weaponLevel>=4){wingGlow(24);wingGlow(-24)}
   if(weaponLevel>=5){wingGlow(4);wingGlow(-4)}
 
+  // 高级武器特效
+  const auraColor=weaponEvolved?'#f0f':(weaponType==='laser'?'#f44':(weaponType==='refract'?'#0f0':(weaponType==='homing'?'#ff0':'#0cf')));
+  if(weaponLevel>=3||weaponEvolved){
+    // 脉冲能量环
+    const ringR=28+Math.sin(frameCount*.1)*4;
+    ctx.strokeStyle=auraColor;ctx.lineWidth=1.5;ctx.globalAlpha=.3+Math.sin(frameCount*.1)*.15;
+    ctx.beginPath();ctx.arc(0,0,ringR,0,Math.PI*2);ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+  if(weaponLevel>=4||weaponEvolved){
+    // 旋转能量球
+    const orbCount=weaponEvolved?6:4;
+    const orbR=weaponEvolved?34:30;
+    const orbSpeed=weaponEvolved?.04:.03;
+    for(let i=0;i<orbCount;i++){
+      const a=frameCount*orbSpeed+i*Math.PI*2/orbCount;
+      const ox=Math.cos(a)*orbR,oy=Math.sin(a)*orbR;
+      ctx.fillStyle=auraColor;ctx.shadowColor=auraColor;ctx.shadowBlur=8;
+      ctx.beginPath();ctx.arc(ox,oy,2.5,0,Math.PI*2);ctx.fill();
+      ctx.shadowBlur=0;
+    }
+  }
+  if(weaponLevel>=5||weaponEvolved){
+    // 外层光环
+    const auraGrad=ctx.createRadialGradient(0,0,20,0,0,45);
+    auraGrad.addColorStop(0,'rgba(0,0,0,0)');
+    auraGrad.addColorStop(.7,weaponEvolved?'rgba(255,0,255,0.08)':'rgba(0,255,255,0.06)');
+    auraGrad.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=auraGrad;ctx.beginPath();ctx.arc(0,0,45,0,Math.PI*2);ctx.fill();
+    // 偶发粒子拖尾
+    if(frameCount%3===0){
+      const pa=Math.random()*Math.PI*2;
+      particles.push({x:p.x+Math.cos(pa)*30,y:p.y+Math.sin(pa)*30,vx:Math.cos(pa)*30,vy:Math.sin(pa)*30+20,life:.5,maxLife:.5,color:auraColor,size:2});
+    }
+  }
+
   // 集中模式：显示命中点（3px小点）
   if(isFocus){
     ctx.fillStyle='#0ff';ctx.shadowColor='#0ff';ctx.shadowBlur=12;
@@ -2078,7 +2167,7 @@ function drawEnemyBullet(b){
 }
 
 // ==================== 道具 ====================
-function createItem(x,y,type,weaponSub){return {x,y,type,weaponSub,vy:80,lived:0,maxLife:8,alive:true,yoy:0,collecting:false,collectSpeed:0};}
+function createItem(x,y,type,weaponSub){return {x,y,type,weaponSub,vy:100,lived:0,maxLife:16,alive:true,yoy:0,collecting:false,collectSpeed:0};}
 const ITEM_COLORS={weapon:'#0ff',bomb:'#ff0',star:'#ff0',shield:'#0f0',coin:'#FD0',health:'#f0f',drone:'#4af',evolve:'#f0f'};
 
 function drawItem(it){
@@ -2470,7 +2559,7 @@ function showAchievement(){
 // ==================== 死亡慢镜头 ====================
 let deathSlowMo=0, deathTimer=0;
 function gameOver(cause){
-  gameRunning=false;player.alive=false;
+  gameRunning=false;gamePaused=false;player.alive=false;
   // v6.5.2: 关闭武器升级面板，防止状态残留
   weaponUpgradeActive=false;
   const wuPanel=document.getElementById('weapon-upgrade');
@@ -3207,13 +3296,18 @@ function update(now){
       if(e.skillTimer<=0&&enemyBullets.length<ebHardCap*.75){
         // v6.12: Boss技能fn(e)加try-catch — 技能函数出错不能拖垮整个update
         try{
-          const skills=BOSS_SKILLS[e.bossType]||BOSS_SKILLS['corporate'];
+          const baseSkills=BOSS_SKILLS[e.bossType]||BOSS_SKILLS['corporate'];
+          // 第2个Boss后激活进阶技能
+          const advSkills=(bossKills>=1&&BOSS_SKILLS_ADVANCED[e.bossType])?BOSS_SKILLS_ADVANCED[e.bossType]:[];
+          const skills=baseSkills.concat(advSkills);
           if(skills&&skills.length>0){
             const totalW=skills.reduce((s,sk)=>s+sk.weight,0);
             let r=Math.random()*totalW,wAcc=0,picked=skills[0];
             for(let si=0;si<skills.length;si++){wAcc+=skills[si].weight;if(r<=wAcc){picked=skills[si];break;}}
             picked.fn(e);
-            e.skillTimer=picked.cooldown*(.7+Math.random()*.6);
+            // 冷却随高度递减（最低50%）
+            const cdMult=Math.max(.5, 1-heightM*0.00008);
+            e.skillTimer=picked.cooldown*(.7+Math.random()*.6)*cdMult;
             if(picked.name&&e.y<H*.5){
               particles.push({x:e.x,y:e.y-30,vx:0,vy:-40,life:.8,size:12,color:'#ff0',text:picked.name,alive:true,type:'text'});
             }
@@ -3354,7 +3448,12 @@ function update(now){
 
 function applyItem(it){
   itemsCollected++;dailyMissions.missions.forEach(m=>{if(m.type==='coin'&&it.type==='coin'&&!m.done)m.progress++;if(m.type==='weapon'&&it.type==='weapon'&&!m.done)m.progress++;});
-  spawnParticles(it.x,it.y,12,ITEM_COLORS[it.type],60,.4,2);
+  spawnParticles(it.x,it.y,20,ITEM_COLORS[it.type],100,.5,3);
+  // 道具拾取闪光环
+  for(let i=0;i<12;i++){
+    const a=i*Math.PI*2/12;
+    particles.push({x:it.x+Math.cos(a)*5,y:it.y+Math.sin(a)*5,vx:Math.cos(a)*200,vy:Math.sin(a)*200,life:.4,maxLife:.4,color:'#fff',size:3});
+  }
   const itemNames={
     weapon:['火力超频！','武器升级！','伤害提升！'][Math.floor(Math.random()*3)],
     bomb:['核弹装填！','清屏神器+1！','炸弹补给！'][Math.floor(Math.random()*3)],
@@ -3646,6 +3745,38 @@ function draw(offset){
     ctx.textAlign='left';
   }
 
+  // 暂停按钮 (右上角)
+  if(gameRunning){
+    const pbSize=28,pbX2=W-pbSize-8,pbY2=8;
+    ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(pbX2,pbY2,pbSize,pbSize);
+    ctx.strokeStyle='rgba(0,200,255,0.5)';ctx.lineWidth=1;ctx.strokeRect(pbX2,pbY2,pbSize,pbSize);
+    ctx.fillStyle='#0cf';ctx.font='16px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(gamePaused?'▶':'⏸',pbX2+pbSize/2,pbY2+pbSize/2);
+    ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  }
+
+  // 暂停遮罩
+  if(gamePaused&&gameRunning){
+    ctx.fillStyle='rgba(0,0,20,0.75)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#0cf';ctx.font='bold 36px sans-serif';ctx.textAlign='center';
+    ctx.shadowColor='#0cf';ctx.shadowBlur=20;
+    ctx.fillText('⏸ 暂停中',W/2,H/2-30);
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#aaa';ctx.font='13px sans-serif';
+    ctx.fillText('按 P 或 ESC 继续',W/2,H/2);
+    // 继续按钮
+    const btnW=120,btnH=40,cx=W/2,cy=H/2+30;
+    ctx.fillStyle='rgba(0,200,255,0.2)';ctx.fillRect(cx-btnW-10,cy,btnW,btnH);
+    ctx.strokeStyle='#0cf';ctx.lineWidth=2;ctx.strokeRect(cx-btnW-10,cy,btnW,btnH);
+    ctx.fillStyle='#0cf';ctx.font='bold 16px sans-serif';ctx.textBaseline='middle';
+    ctx.fillText('▶ 继续',cx-btnW/2-10,cy+btnH/2);
+    // 退出按钮
+    ctx.fillStyle='rgba(255,80,80,0.2)';ctx.fillRect(cx+10,cy,btnW,btnH);
+    ctx.strokeStyle='#f55';ctx.lineWidth=2;ctx.strokeRect(cx+10,cy,btnW,btnH);
+    ctx.fillStyle='#f55';ctx.fillText('✕ 退出',cx+btnW/2+10,cy+btnH/2);
+    ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  }
+
   // 进度条 (底部)
   const pbY=H-8,pbW=W*.5,pbX=(W-pbW)/2;
   const progressToBoss=heightM%500/500;
@@ -3708,7 +3839,7 @@ function gameLoop(now){
 
   // ── 阶段2: update() — 独立try-catch，出错不影响后续看门狗和draw ──
   try {
-    if(gameRunning||deathSlowMo>0) {
+    if((gameRunning&&!gamePaused)||deathSlowMo>0) {
       update(now);
     }
     // v6.14: update()成功时间戳 — 只有成功执行才更新
@@ -3873,15 +4004,30 @@ canvas.addEventListener('touchstart',e=>{
   e.preventDefault();
   if(!gameRunning) return;
   const t=e.changedTouches[0];
+  const tx=t.clientX*(W/canvas.offsetWidth),ty=t.clientY*(H/canvas.offsetHeight);
+  // 暂停按钮区域
+  if(tx>W-36&&tx<W-8&&ty>8&&ty<36){
+    gamePaused=!gamePaused;
+    if(!gamePaused){lastTime=performance.now();}
+    return;
+  }
+  // 暂停时按钮区域
+  if(gamePaused){
+    const btnW=120,btnH=40,cx=W/2,cy=H/2+30;
+    // 继续按钮
+    if(tx>cx-btnW-10&&tx<cx-10&&ty>cy&&ty<cy+btnH){gamePaused=false;lastTime=performance.now();return;}
+    // 退出按钮
+    if(tx>cx+10&&tx<cx+btnW+10&&ty>cy&&ty<cy+btnH){quitGame();return;}
+    return;
+  }
   touchId=t.identifier;
-  player.targetX=t.clientX*(W/canvas.offsetWidth);
-  player.targetY=t.clientY*(H/canvas.offsetHeight);
+  player.targetX=tx;player.targetY=ty;
   isTouching=true;shooting=true;
 },{passive:false});
 
 canvas.addEventListener('touchmove',e=>{
   e.preventDefault();
-  if(!gameRunning) return;
+  if(!gameRunning||gamePaused) return;
   for(let t of e.changedTouches){
     if(t.identifier===touchId){
       player.targetX=t.clientX*(W/canvas.offsetWidth);
@@ -3901,16 +4047,36 @@ canvas.addEventListener('touchend',e=>{
 
 canvas.addEventListener('mousedown',e=>{
   if(!gameRunning) return;
-  player.targetX=e.offsetX*(W/canvas.offsetWidth);player.targetY=e.offsetY*(H/canvas.offsetHeight);shooting=true;
+  const mx=e.offsetX*(W/canvas.offsetWidth),my=e.offsetY*(H/canvas.offsetHeight);
+  // 暂停按钮区域
+  if(mx>W-36&&mx<W-8&&my>8&&my<36){
+    gamePaused=!gamePaused;
+    if(!gamePaused){lastTime=performance.now();}
+    return;
+  }
+  // 暂停时按钮区域
+  if(gamePaused){
+    const btnW=120,btnH=40,cx=W/2,cy=H/2+30;
+    if(mx>cx-btnW-10&&mx<cx-10&&my>cy&&my<cy+btnH){gamePaused=false;lastTime=performance.now();return;}
+    if(mx>cx+10&&mx<cx+btnW+10&&my>cy&&my<cy+btnH){quitGame();return;}
+    return;
+  }
+  player.targetX=mx;player.targetY=my;shooting=true;
 });
 canvas.addEventListener('mousemove',e=>{
-  if(!gameRunning||!shooting) return;
+  if(!gameRunning||!shooting||gamePaused) return;
   player.targetX=e.offsetX*(W/canvas.offsetWidth);player.targetY=e.offsetY*(H/canvas.offsetHeight);
 });
 canvas.addEventListener('mouseup',()=>{shooting=false;});
 
 window.addEventListener('keydown',e=>{
-  if(!gameRunning) return;
+  // 暂停/恢复 — 在gameRunning检查之前处理，确保暂停时也能恢复
+  if((e.key==='p'||e.key==='P'||e.key==='Escape')&&gameRunning){
+    gamePaused=!gamePaused;
+    if(gamePaused){lastTime=performance.now();} // 恢复时重置lastTime避免dt跳跃
+    return;
+  }
+  if(!gameRunning||gamePaused) return;
   switch(e.key){
     case 'ArrowLeft':player.targetX-=30;break;
     case 'ArrowRight':player.targetX+=30;break;
@@ -3928,6 +4094,10 @@ window.addEventListener('keyup',e=>{
 });
 
 // ==================== 游戏控制 ====================
+function quitGame(){
+  gamePaused=false;
+  gameOver('主动退出');
+}
 function startGame(){
   initAudio();startBGM();
   diffCfg = DIFFICULTIES[currentDifficulty];
@@ -3966,7 +4136,7 @@ function startGame(){
   document.getElementById('gameover').style.display='none';
   achievementQueue=[];achievementPopupTimer=0;
   document.getElementById('achievement-popup').classList.remove('show');
-  gameRunning=true;
+  gameRunning=true;gamePaused=false;
   lastTime=performance.now();
   storyTriggered.clear(); // 重置剧情触发记录
   // v6.8: 重置帧驱动story系统
@@ -4069,7 +4239,8 @@ const WEAPON_UPGRADE_OPTIONS=[
     if(keys.length===0) return null;
     const k=keys[Math.floor(Math.random()*keys.length)];
     const wt=WEAPON_TYPES[k];
-    return {name:'切换: '+wt.name,desc:wt.desc+'（从LV1开始）',icon:wt.icon,color:wt.color,action:()=>{weaponType=k;weaponLevel=1;addScorePopup(W/2,H*.4,'🔄 '+wt.name,wt.color,20);}};
+    const newLvl=Math.max(1,Math.floor(weaponLevel*0.6));
+    return {name:'切换: '+wt.name,desc:wt.desc+'（LV'+newLvl+'起步）',icon:wt.icon,color:wt.color,action:()=>{const oldLvl=weaponLevel;weaponType=k;weaponLevel=Math.max(1,Math.floor(oldLvl*0.6));addScorePopup(W/2,H*.4,'🔄 '+wt.name+' LV'+weaponLevel,wt.color,20);}};
   }},
   {type:'special',weight:2,desc:'获得特殊能力',icon:'⚡',getCfg(){
     const specs=[
