@@ -293,7 +293,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v8.2';
+const GAME_VERSION = 'v8.3';
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
 // v6.8: story帧驱动重写+武器升级去重
@@ -1643,34 +1643,46 @@ function drawPlayer(p){
 
 // ==================== 射击（多武器系统） ====================
 function shoot(p){
-  const cfg=WEAPON_TYPES[weaponType]; if(!cfg) return;
-  const lvl=cfg.levels[Math.min(weaponLevel-1, cfg.levels.length-1)];
-  const ty=p.y-24;
-  if(weaponType==='spread'){
-    const halfSpread=lvl.spread*(lvl.count-1)/2;
-    for(let i=0;i<lvl.count;i++){
-      const a=-Math.PI/2-halfSpread+(i/(lvl.count-1||1))*halfSpread*2;
-      playerBullets.push({x:p.x,y:ty,vx:Math.cos(a)*lvl.speed,vy:Math.sin(a)*lvl.speed,type:'spread',life:lvl.life,alive:true});
+  try{
+    const cfg=WEAPON_TYPES[weaponType]; if(!cfg){console.warn('[shoot] 无效武器类型:',weaponType);return;}
+    const lvlIdx=Math.max(0,Math.min(weaponLevel-1,cfg.levels.length-1));
+    const lvl=cfg.levels[lvlIdx];
+    if(!lvl){console.warn('[shoot] 无效武器等级:',weaponLevel,'最大',cfg.levels.length);return;}
+    const ty=p.y-24;
+    if(!isFinite(ty)){console.warn('[shoot] 无效玩家Y坐标');return;}
+    if(weaponType==='spread'){
+      const halfSpread=lvl.spread*(lvl.count-1)/2;
+      for(let i=0;i<lvl.count;i++){
+        const a=-Math.PI/2-halfSpread+(i/(lvl.count-1||1))*halfSpread*2;
+        playerBullets.push({x:p.x,y:ty,vx:Math.cos(a)*lvl.speed,vy:Math.sin(a)*lvl.speed,type:'spread',life:lvl.life,alive:true});
+      }
+    } else if(weaponType==='laser'){
+      // 激光弹 — 射出穿透光柱，向上飞行
+      playerBullets.push({x:p.x,y:ty,vx:0,vy:-lvl.speed,w:lvl.width,l:lvl.length,dmg:lvl.dmg,type:'laser',life:lvl.life,alive:true});
+    } else if(weaponType==='refract'){
+      for(let i=0;i<lvl.count;i++){
+        const a=-Math.PI/2+(i-(lvl.count-1)/2)*.12;
+        playerBullets.push({x:p.x+i*4-(lvl.count-1)*2,y:ty,vx:Math.cos(a)*lvl.speed,vy:Math.sin(a)*lvl.speed,type:'refract',bounces:lvl.bounces,life:lvl.life,alive:true});
+      }
+    } else if(weaponType==='homing'){
+      // 先找最近的敌人确定初始方向
+      let targetA=-Math.PI/2;
+      let minD=9999;
+      for(let i=0;i<enemies.length;i++){
+        const e=enemies[i];
+        if(!e||!isFinite(e.x)||!isFinite(e.y)) continue;
+        const d=Math.hypot(e.x-p.x,e.y-ty);
+        if(d<minD){minD=d;targetA=Math.atan2(e.y-ty,e.x-p.x);}
+      }
+      for(let i=0;i<lvl.count;i++){
+        const a=targetA+(i-(lvl.count-1)/2)*.25;
+        playerBullets.push({x:p.x+i*6-(lvl.count-1)*3,y:ty,vx:Math.cos(a)*lvl.speed,vy:Math.sin(a)*lvl.speed,type:'homing',speed:lvl.speed,turnRate:lvl.turnRate,life:lvl.life,alive:true});
+      }
     }
-  } else if(weaponType==='laser'){
-    // 激光弹 — 射出穿透光柱，向上飞行
-    playerBullets.push({x:p.x,y:ty,vx:0,vy:-lvl.speed,w:lvl.width,l:lvl.length,dmg:lvl.dmg,type:'laser',life:lvl.life,alive:true});
-  } else if(weaponType==='refract'){
-    for(let i=0;i<lvl.count;i++){
-      const a=-Math.PI/2+(i-(lvl.count-1)/2)*.12;
-      playerBullets.push({x:p.x+i*4-(lvl.count-1)*2,y:ty,vx:Math.cos(a)*lvl.speed,vy:Math.sin(a)*lvl.speed,type:'refract',bounces:lvl.bounces,life:lvl.life,alive:true});
-    }
-  } else if(weaponType==='homing'){
-    // 先找最近的敌人确定初始方向
-    let targetA=-Math.PI/2;
-    let minD=9999;
-    for(let i=0;i<enemies.length;i++){const e=enemies[i];const d=Math.hypot(e.x-p.x,e.y-ty);if(d<minD){minD=d;targetA=Math.atan2(e.y-ty,e.x-p.x);}}
-    for(let i=0;i<lvl.count;i++){
-      const a=targetA+(i-(lvl.count-1)/2)*.25;
-      playerBullets.push({x:p.x+i*6-(lvl.count-1)*3,y:ty,vx:Math.cos(a)*lvl.speed,vy:Math.sin(a)*lvl.speed,type:'homing',speed:lvl.speed,turnRate:lvl.turnRate,life:lvl.life,alive:true});
-    }
+    SFX.shoot();
+  }catch(e){
+    console.error('[shoot v8.3] 异常:',e.message||e);
   }
-  SFX.shoot();
 }
 function drawPlayerBullet(b){
   if(b.y<-100||b.y>H+100||b.x<-100||b.x>W+100) return;
@@ -2807,6 +2819,8 @@ function update(now){
   if(!isFinite(lastTime)) lastTime=now; // 修复 lastTime 变成 NaN 的连锁反应
   lastTime=now;frameCount++;gameTime+=dt;
 
+  try{
+
   // FPS自适应降级：每15帧采样8个样本，缓和衰减+快速恢复
   if(frameCount%15===0&&dt>0.001){
     const fps=1/Math.max(dt,0.0001);
@@ -2900,6 +2914,7 @@ function update(now){
   if(weaponLevel>=maxLvl) weapon3Distance=heightM-weapon3Start;
 
   updateWeather(dt);
+  }catch(e){console.error('[update v8.3 阶段A]',e.message||e);} try{
 
   // === 玩家更新 ===
   if(player.alive){
@@ -2945,6 +2960,7 @@ function update(now){
       particles.push(new Particle(player.x+(Math.random()-.5)*16,player.y+24,0,140+Math.random()*80,.4,'#0cf',1+Math.random()));
     }
   }
+  }catch(e){console.error('[update v8.3 阶段B]',e.message||e);} try{
 
   // === 粒子（原地清理，避免每帧创建新数组） ===
   const MAX_PARTICLES=_adaptMaxP;
@@ -2958,6 +2974,7 @@ function update(now){
 
   // === 成就弹窗 ===
   if(achievementPopupTimer>0){achievementPopupTimer-=dt;if(achievementPopupTimer<=0)showAchievement();}
+  }catch(e){console.error('[update v8.3 阶段C]',e.message||e);} try{
 
   // === 子弹（原地清理） ===
   const MAX_PLAYER_BULLETS=100;
@@ -3060,6 +3077,7 @@ function update(now){
       }
     }
   }
+  }catch(e){console.error('[update v8.3 阶段D]',e.message||e);} try{
   // 注：分裂弹已在上方主循环中处理（willSplit在life<=0时爆炸），此处无需重复处理
 
   // === 道具（原地清理+收集） ===
@@ -3239,6 +3257,7 @@ function update(now){
       }
     }
   }
+  }catch(e){console.error('[update v8.3 阶段E]',e.message||e);} try{
 
   // === 敌机更新（原地清理+数量上限） ===
   // 动态上限：dScale越高，同屏怪物越少（保持视觉可读性和性能）
@@ -3447,6 +3466,8 @@ function update(now){
 
   // v6.8: 每帧推进story系统（帧驱动，替代setTimeout）
   updateStorySystem();
+  }catch(e){console.error('[update v8.3 阶段F]',e.message||e);}
+  _lastUpdateSuccess=performance.now();
 }
 
 function applyItem(it){
@@ -4252,7 +4273,7 @@ window.addEventListener('resize',()=>{resize();initBg();});
 // 版本号显示
 document.getElementById('menu-version').textContent = GAME_VERSION + ' · ' + BUILD_DATE;
 
-console.log('🌌 星际风筝传说 ' + GAME_VERSION + ' — 光束觉醒');
+console.log('🌌 星际风筝传说 ' + GAME_VERSION + ' — 冻结修复');
 console.log('  v5.3: 实体上限 · 原地清理 · 去ShadowBlur · Boss弹幕缩减 · 屏幕外裁剪');
 console.log('  v5.2: 连击音效升级 · Boss专属台词 · 15个成就 · 死亡分享截图卡');
 console.log('  性能: 粒子MAX300 · 敌弹MAX200 · 玩家弹MAX100 · 敌机MAX60 · 发射拦截');
