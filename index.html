@@ -293,7 +293,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v8.3';
+const GAME_VERSION = 'v8.4';
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
 // v6.8: story帧驱动重写+武器升级去重
@@ -1446,7 +1446,7 @@ const WATCHDOG_MAX=60; // ~1秒@60fps（v6.7: 从180大幅缩短，快速恢复�
 // v6.13: 半冻结检测 — 专门检测"风筝能动但敌机/子弹不动"的异常
 let _semiFreezeCounter=0; // 敌弹+敌机数量连续不变帧数
 let _lastEntityCount=0;   // 上一帧的 (enemyBullets.length*100 + enemies.length)
-const SEMI_FREEZE_MAX=90; // ~1.5秒@60fps（比看门狗宽松，避免误判）
+const SEMI_FREEZE_MAX=180; // v8.4: 放宽到3秒@60fps，减少误触发
 // v6.14: 三重独立冻结检测 — 彻底根治"风筝能动其他不动"
 let _lastUpdateSuccess=0; // 上次update()成功执行的时间戳(ms)
 let _e0FreezeCounter=0;   // 第一个敌人Y坐标连续不变帧数
@@ -3925,17 +3925,18 @@ function gameLoop(now){
     const updateStalled = _lastUpdateSuccess && (performance.now() - _lastUpdateSuccess > 500);
 
     // 触发条件: 任一检测器超过阈值，或时间戳检测到update()连续失败
-    if((_semiFreezeCounter > SEMI_FREEZE_MAX || _e0FreezeCounter > 60 || updateStalled) && _postEntityCount > 0){
+    if((_semiFreezeCounter > SEMI_FREEZE_MAX || _e0FreezeCounter > 120 || updateStalled) && _postEntityCount > 0){
       _watchdogRecoveryCount++;
       _consecutiveRecoveries++;
-      const reason = _semiFreezeCounter > SEMI_FREEZE_MAX ? 'SemiFreeze' : (_e0FreezeCounter > 60 ? 'EnemyMove' : 'UpdateStalled');
+      const reason = _semiFreezeCounter > SEMI_FREEZE_MAX ? 'SemiFreeze' : (_e0FreezeCounter > 120 ? 'EnemyMove' : 'UpdateStalled');
       console.warn(`[v6.14 FreezeDetect #${_watchdogRecoveryCount}] ${reason} 恢复! e=${enemies.length} eb=${enemyBullets.length} pb=${playerBullets.length} cr=${_consecutiveRecoveries}`);
       _semiFreezeCounter = 0; _e0FreezeCounter = 0; _watchdogTimer = 0;
 
       // 核恢复: 清除所有可能导致问题的状态
       dt = 0.016; lastTime = performance.now(); _lastUpdateSuccess = performance.now();
       // 清空所有子弹（敌弹+玩家弹+延迟队列）— 防止积累状态导致再次异常
-      enemyBullets = []; playerBullets = []; _delayedBullets = []; _delayedWaves = [];
+      enemyBullets = []; _delayedBullets = []; _delayedWaves = [];
+      // v8.4: 不再清空playerBullets — 冻结恢复不应删除玩家子弹
       // 粒子太多也清掉
       if(particles.length > 200) particles = particles.slice(-200);
       // 强制推进敌机一帧（避免它们原地堆积）
