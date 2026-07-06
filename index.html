@@ -220,7 +220,7 @@ canvas{display:block;width:100%;height:100%;}
     <button id="btn-start" onclick="startGame()">▶ 开始飞行</button>
     <button id="btn-leaderboard" onclick="showLeaderboard()">🏆 排行榜</button>
     <div class="menu-stats" id="menu-stats"></div>
-    <div class="menu-hint">触屏：拖拽移动 / 点击射击<br>键盘：← → 移动 / 空格射击 / B 炸弹 / P 暂停</div>
+    <div class="menu-hint">触屏：拖拽移动 / 点击射击<br>键盘：← → 移动 / 空格射击 / B 炸弹 / P 暂停 / Q 退出</div>
   </div>
   <div class="menu-version" id="menu-version"></div>
 </div>
@@ -293,7 +293,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v8.0';
+const GAME_VERSION = 'v8.1';
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
 // v6.8: story帧驱动重写+武器升级去重
@@ -933,7 +933,7 @@ const WEAPON_TYPES = {
   spread: {
     name:'散射炮', icon:'🔷', color:'#0cf', desc:'多发扇形弹幕',
     levels:[
-      {count:1,spread:0,speed:900,life:2.5},
+      {count:2,spread:0.06,speed:900,life:2.5},
       {count:3,spread:0.08,speed:900,life:2.5},
       {count:5,spread:0.10,speed:920,life:2.5},
       {count:7,spread:0.11,speed:940,life:2.5},
@@ -1707,27 +1707,27 @@ function drawPlayerBullet(b){
   } else if(b.type==='refract'){
     const tLen=Math.min(35+bspd*0.04,65);
     drawGradTrail(evo?'rgba(100,255,100,0.9)':'rgba(0,230,0,0.85)',tLen,4);
-    ctx.shadowColor='#0f0';ctx.shadowBlur=evo?16:12;
+    ctx.shadowColor='#0f0';ctx.shadowBlur=evo?20:16;
     ctx.fillStyle=evo?'#8f8':'#0f0';ctx.beginPath();
-    for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6,r=evo?9:7;if(i===0)ctx.moveTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);else ctx.lineTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);}
+    for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6,r=evo?11:9;if(i===0)ctx.moveTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);else ctx.lineTo(bx+Math.cos(a)*r,by+Math.sin(a)*r);}
     ctx.closePath();ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,evo?4:3,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,evo?4.5:3.5,0,Math.PI*2);ctx.fill();
   } else if(b.type==='homing'){
     const tLen=Math.min(35+bspd*0.04,65);
     drawGradTrail(evo?'rgba(255,255,80,0.9)':'rgba(255,220,0,0.85)',tLen,4);
-    ctx.shadowColor='#ff0';ctx.shadowBlur=evo?16:12;
-    ctx.fillStyle=evo?'#ff8':'#ff0';ctx.beginPath();ctx.moveTo(bx,by-(evo?12:10));ctx.lineTo(bx+4,by);ctx.lineTo(bx+3,by+(evo?12:10));ctx.lineTo(bx-3,by+(evo?12:10));ctx.lineTo(bx-4,by);ctx.closePath();ctx.fill();
-    ctx.fillStyle=evo?'#fa0':'#f80';ctx.beginPath();ctx.arc(bx,by,evo?5:4,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();
+    ctx.shadowColor='#ff0';ctx.shadowBlur=evo?20:16;
+    ctx.fillStyle=evo?'#ff8':'#ff0';ctx.beginPath();ctx.moveTo(bx,by-(evo?14:12));ctx.lineTo(bx+4,by);ctx.lineTo(bx+3,by+(evo?14:12));ctx.lineTo(bx-3,by+(evo?14:12));ctx.lineTo(bx-4,by);ctx.closePath();ctx.fill();
+    ctx.fillStyle=evo?'#fa0':'#f80';ctx.beginPath();ctx.arc(bx,by,evo?6:5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,3.5,0,Math.PI*2);ctx.fill();
   } else {
     // spread散射弹
     const tLen=Math.min(35+bspd*0.04,65);
     drawGradTrail(evo?'rgba(160,255,255,0.95)':'rgba(0,210,255,0.9)',tLen,4);
-    ctx.shadowColor=evo?'#8ff':'#0cf';ctx.shadowBlur=evo?16:12;
+    ctx.shadowColor=evo?'#8ff':'#0cf';ctx.shadowBlur=evo?20:16;
     ctx.fillStyle=evo?'#8ff':'#0cf';
-    const sz=evo?12:10;
-    ctx.beginPath();ctx.moveTo(bx,by-sz);ctx.lineTo(bx+3,by-2);ctx.lineTo(bx+3,by+6);ctx.lineTo(bx,by+sz);ctx.lineTo(bx-3,by+6);ctx.lineTo(bx-3,by-2);ctx.closePath();ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by-1,3,0,Math.PI*2);ctx.fill();
+    const sz=evo?14:12;
+    ctx.beginPath();ctx.moveTo(bx,by-sz);ctx.lineTo(bx+4,by-2);ctx.lineTo(bx+4,by+6);ctx.lineTo(bx,by+sz);ctx.lineTo(bx-4,by+6);ctx.lineTo(bx-4,by-2);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by-1,4,0,Math.PI*2);ctx.fill();
   }
   ctx.restore();
 }
@@ -2069,8 +2069,8 @@ function drawEnemyBullet(b){
     const beamLen=Math.min(50+spd*0.05,80);
     drawGradTrail(cfg.color,beamLen,4);
     drawGradTrail('rgba(255,200,200,0.6)',beamLen*0.5,2);
-    ctx.shadowColor=cfg.color;ctx.shadowBlur=12;
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,3.5,0,Math.PI*2);ctx.fill();
+    ctx.shadowColor=cfg.color;ctx.shadowBlur=14;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,4,0,Math.PI*2);ctx.fill();
   } else if(bt==='fast'){
     const tLen=Math.min(35+spd*0.06,60);
     drawGradTrail(cfg.glow,tLen,3);
@@ -2081,15 +2081,15 @@ function drawEnemyBullet(b){
       ctx.globalAlpha=alpha;ctx.fillStyle=cfg.glow;
       ctx.beginPath();ctx.moveTo(tx,ty-sz);ctx.lineTo(tx+sz*0.5,ty);ctx.lineTo(tx,ty+sz);ctx.lineTo(tx-sz*0.5,ty);ctx.closePath();ctx.fill();
     }
-    ctx.shadowColor='#fff';ctx.shadowBlur=10;ctx.globalAlpha=1;
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(bx,by-6);ctx.lineTo(bx+2.5,by);ctx.lineTo(bx,by+6);ctx.lineTo(bx-2.5,by);ctx.closePath();ctx.fill();
+    ctx.shadowColor='#fff';ctx.shadowBlur=12;ctx.globalAlpha=1;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(bx,by-7);ctx.lineTo(bx+3,by);ctx.lineTo(bx,by+7);ctx.lineTo(bx-3,by);ctx.closePath();ctx.fill();
   } else if(bt==='wave'){
     const wt=(b._wt||0)*6;
     const wobbleX=Math.sin(wt)*2.5,wobbleY=Math.cos(wt*1.3)*1.5;
     const wx=bx+wobbleX,wy=by+wobbleY;
     const tLen=Math.min(30+spd*0.07,55);
     drawGradTrail(cfg.glow,tLen,3.5);
-    ctx.shadowColor=cfg.color;ctx.shadowBlur=10;
+    ctx.shadowColor=cfg.color;ctx.shadowBlur=14;
     ctx.fillStyle=cfg.glow;ctx.beginPath();
     ctx.ellipse(wx,wy,cfg.size*1.5,cfg.size*0.7,wt*0.5,0,Math.PI*2);ctx.fill();
     ctx.fillStyle=cfg.inner;ctx.beginPath();
@@ -2100,7 +2100,7 @@ function drawEnemyBullet(b){
     const tLen=Math.min(30+spd*0.07,55);
     drawGradTrail(cfg.glow,tLen,3.5);
     const or=cfg.size,rot=b._rot||0;
-    ctx.shadowColor=cfg.color;ctx.shadowBlur=10;
+    ctx.shadowColor=cfg.color;ctx.shadowBlur=14;
     ctx.strokeStyle=cfg.color;ctx.lineWidth=2;ctx.globalAlpha=0.85;
     ctx.beginPath();
     for(let i=0;i<6;i++){const a=i*Math.PI/3-Math.PI/6+rot;const px=bx+Math.cos(a)*or,py=by+Math.sin(a)*or;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
@@ -2115,7 +2115,7 @@ function drawEnemyBullet(b){
   } else if(bt==='explosive'){
     const pulse=lowDetail?1:1+Math.sin(b.life*15)*.2;
     const er=cfg.size*pulse,spikes=6,erot=b._rot||0;
-    ctx.shadowColor=cfg.color;ctx.shadowBlur=10;
+    ctx.shadowColor=cfg.color;ctx.shadowBlur=14;
     ctx.fillStyle=cfg.glow;ctx.beginPath();
     for(let i=0;i<spikes*2;i++){
       const r=i%2===0?er:er*0.5;
@@ -2147,7 +2147,7 @@ function drawEnemyBullet(b){
       ctx.globalAlpha=alpha;ctx.fillStyle=cfg.glow;
       ctx.beginPath();ctx.moveTo(tx,ty-sz);ctx.lineTo(tx+sz*0.6,ty+sz*0.5);ctx.lineTo(tx-sz*0.6,ty+sz*0.5);ctx.closePath();ctx.fill();
     }
-    ctx.shadowColor=cfg.color;ctx.shadowBlur=10;ctx.globalAlpha=1;
+    ctx.shadowColor=cfg.color;ctx.shadowBlur=14;ctx.globalAlpha=1;
     ctx.fillStyle=cfg.glow;ctx.beginPath();
     ctx.moveTo(bx+hx*7,by+hy*7);
     ctx.lineTo(bx+hy*4,hx*-4+by-4);
@@ -2155,13 +2155,13 @@ function drawEnemyBullet(b){
     ctx.closePath();ctx.fill();
     ctx.strokeStyle='#ff0';ctx.lineWidth=1;ctx.globalAlpha=0.7;
     ctx.stroke();ctx.globalAlpha=1;
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,3.5,0,Math.PI*2);ctx.fill();
   } else {
     const tLen=Math.min(35+spd*0.06,60);
     drawGradTrail(cfg.glow,tLen,3.5);
-    ctx.shadowColor=cfg.color;ctx.shadowBlur=10;
-    ctx.fillStyle=cfg.glow;ctx.beginPath();ctx.arc(bx,by,cfg.size+1,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by-1,3,0,Math.PI*2);ctx.fill();
+    ctx.shadowColor=cfg.color;ctx.shadowBlur=14;
+    ctx.fillStyle=cfg.glow;ctx.beginPath();ctx.arc(bx,by,cfg.size+1.5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by-1,3.5,0,Math.PI*2);ctx.fill();
   }
   ctx.restore();
 }
@@ -3747,10 +3747,10 @@ function draw(offset){
 
   // 暂停按钮 (右上角)
   if(gameRunning){
-    const pbSize=28,pbX2=W-pbSize-8,pbY2=8;
-    ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(pbX2,pbY2,pbSize,pbSize);
-    ctx.strokeStyle='rgba(0,200,255,0.5)';ctx.lineWidth=1;ctx.strokeRect(pbX2,pbY2,pbSize,pbSize);
-    ctx.fillStyle='#0cf';ctx.font='16px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    const pbSize=40,pbX2=W-pbSize-12,pbY2=12;
+    ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(pbX2,pbY2,pbSize,pbSize);
+    ctx.strokeStyle='rgba(0,200,255,0.6)';ctx.lineWidth=2;ctx.strokeRect(pbX2,pbY2,pbSize,pbSize);
+    ctx.fillStyle='#0cf';ctx.font='bold 20px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText(gamePaused?'▶':'⏸',pbX2+pbSize/2,pbY2+pbSize/2);
     ctx.textAlign='left';ctx.textBaseline='alphabetic';
   }
@@ -3758,22 +3758,22 @@ function draw(offset){
   // 暂停遮罩
   if(gamePaused&&gameRunning){
     ctx.fillStyle='rgba(0,0,20,0.75)';ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='#0cf';ctx.font='bold 36px sans-serif';ctx.textAlign='center';
+    ctx.fillStyle='#0cf';ctx.font='bold 40px sans-serif';ctx.textAlign='center';
     ctx.shadowColor='#0cf';ctx.shadowBlur=20;
-    ctx.fillText('⏸ 暂停中',W/2,H/2-30);
+    ctx.fillText('⏸ 暂停中',W/2,H/2-50);
     ctx.shadowBlur=0;
-    ctx.fillStyle='#aaa';ctx.font='13px sans-serif';
-    ctx.fillText('按 P 或 ESC 继续',W/2,H/2);
+    ctx.fillStyle='#aaa';ctx.font='14px sans-serif';
+    ctx.fillText('按 P 或 ESC 继续',W/2,H/2-10);
     // 继续按钮
-    const btnW=120,btnH=40,cx=W/2,cy=H/2+30;
-    ctx.fillStyle='rgba(0,200,255,0.2)';ctx.fillRect(cx-btnW-10,cy,btnW,btnH);
-    ctx.strokeStyle='#0cf';ctx.lineWidth=2;ctx.strokeRect(cx-btnW-10,cy,btnW,btnH);
-    ctx.fillStyle='#0cf';ctx.font='bold 16px sans-serif';ctx.textBaseline='middle';
-    ctx.fillText('▶ 继续',cx-btnW/2-10,cy+btnH/2);
+    const btnW=140,btnH=48,cx=W/2,cy=H/2+30;
+    ctx.fillStyle='rgba(0,200,255,0.25)';ctx.fillRect(cx-btnW-15,cy,btnW,btnH);
+    ctx.strokeStyle='#0cf';ctx.lineWidth=2;ctx.strokeRect(cx-btnW-15,cy,btnW,btnH);
+    ctx.fillStyle='#0cf';ctx.font='bold 18px sans-serif';ctx.textBaseline='middle';
+    ctx.fillText('▶ 继续',cx-btnW/2-15,cy+btnH/2);
     // 退出按钮
-    ctx.fillStyle='rgba(255,80,80,0.2)';ctx.fillRect(cx+10,cy,btnW,btnH);
-    ctx.strokeStyle='#f55';ctx.lineWidth=2;ctx.strokeRect(cx+10,cy,btnW,btnH);
-    ctx.fillStyle='#f55';ctx.fillText('✕ 退出',cx+btnW/2+10,cy+btnH/2);
+    ctx.fillStyle='rgba(255,80,80,0.25)';ctx.fillRect(cx+15,cy,btnW,btnH);
+    ctx.strokeStyle='#f55';ctx.lineWidth=2;ctx.strokeRect(cx+15,cy,btnW,btnH);
+    ctx.fillStyle='#f55';ctx.fillText('✕ 退出',cx+btnW/2+15,cy+btnH/2);
     ctx.textAlign='left';ctx.textBaseline='alphabetic';
   }
 
@@ -4006,18 +4006,18 @@ canvas.addEventListener('touchstart',e=>{
   const t=e.changedTouches[0];
   const tx=t.clientX*(W/canvas.offsetWidth),ty=t.clientY*(H/canvas.offsetHeight);
   // 暂停按钮区域
-  if(tx>W-36&&tx<W-8&&ty>8&&ty<36){
+  if(tx>W-52&&tx<W-12&&ty>12&&ty<52){
     gamePaused=!gamePaused;
     if(!gamePaused){lastTime=performance.now();}
     return;
   }
   // 暂停时按钮区域
   if(gamePaused){
-    const btnW=120,btnH=40,cx=W/2,cy=H/2+30;
+    const btnW=140,btnH=48,cx=W/2,cy=H/2+30;
     // 继续按钮
-    if(tx>cx-btnW-10&&tx<cx-10&&ty>cy&&ty<cy+btnH){gamePaused=false;lastTime=performance.now();return;}
+    if(tx>cx-btnW-15&&tx<cx-15&&ty>cy&&ty<cy+btnH){gamePaused=false;lastTime=performance.now();return;}
     // 退出按钮
-    if(tx>cx+10&&tx<cx+btnW+10&&ty>cy&&ty<cy+btnH){quitGame();return;}
+    if(tx>cx+15&&tx<cx+btnW+15&&ty>cy&&ty<cy+btnH){quitGame();return;}
     return;
   }
   touchId=t.identifier;
@@ -4049,16 +4049,16 @@ canvas.addEventListener('mousedown',e=>{
   if(!gameRunning) return;
   const mx=e.offsetX*(W/canvas.offsetWidth),my=e.offsetY*(H/canvas.offsetHeight);
   // 暂停按钮区域
-  if(mx>W-36&&mx<W-8&&my>8&&my<36){
+  if(mx>W-52&&mx<W-12&&my>12&&my<52){
     gamePaused=!gamePaused;
     if(!gamePaused){lastTime=performance.now();}
     return;
   }
   // 暂停时按钮区域
   if(gamePaused){
-    const btnW=120,btnH=40,cx=W/2,cy=H/2+30;
-    if(mx>cx-btnW-10&&mx<cx-10&&my>cy&&my<cy+btnH){gamePaused=false;lastTime=performance.now();return;}
-    if(mx>cx+10&&mx<cx+btnW+10&&my>cy&&my<cy+btnH){quitGame();return;}
+    const btnW=140,btnH=48,cx=W/2,cy=H/2+30;
+    if(mx>cx-btnW-15&&mx<cx-15&&my>cy&&my<cy+btnH){gamePaused=false;lastTime=performance.now();return;}
+    if(mx>cx+15&&mx<cx+btnW+15&&my>cy&&my<cy+btnH){quitGame();return;}
     return;
   }
   player.targetX=mx;player.targetY=my;shooting=true;
@@ -4073,7 +4073,12 @@ window.addEventListener('keydown',e=>{
   // 暂停/恢复 — 在gameRunning检查之前处理，确保暂停时也能恢复
   if((e.key==='p'||e.key==='P'||e.key==='Escape')&&gameRunning){
     gamePaused=!gamePaused;
-    if(gamePaused){lastTime=performance.now();} // 恢复时重置lastTime避免dt跳跃
+    if(!gamePaused){lastTime=performance.now();} // 恢复时重置lastTime避免dt跳跃
+    return;
+  }
+  // 暂停时 Q 键退出
+  if(gamePaused&&gameRunning&&(e.key==='q'||e.key==='Q')){
+    quitGame();
     return;
   }
   if(!gameRunning||gamePaused) return;
