@@ -293,7 +293,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v8.18';
+const GAME_VERSION = 'v8.19';
 // v8.16: DevSquad专家团审计修复22项 — 星风暴清场/炸弹Boss收尾/死亡结局剧情/无人机友方弹/普通弹Boss剧情/退出存档/描边色/凤凰翼解锁/连击清零/死代码清理等
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
@@ -1498,7 +1498,7 @@ let _bossStoryQueue=null;
 let _delayedBullets=[], _delayedWaves=[];
 let feverGauge=0, feverActive=false, feverTimer=0, feverCount=0;
 let bombCount=3, weaponLevel=1;
-let bossFight=null, waveTimer=0, nextBossAt=500, _lastBossHeight=0;
+let bossFight=null, waveTimer=0, nextBossAt=500, _lastBossHeight=0, bossSpawnCount=0;
 let gameSpeed=1, gameTime=0;
 let itemsCollected=0, bossKills=SAVE.get('bossKills',0);
 let weapon3Start=0, weapon3Distance=0;
@@ -1822,7 +1822,7 @@ const ENEMY_NAMES={
     '996永恒帝','需求变更之主','KPI终结者'
   ]
 };
-function createEnemy(type='small'){
+function createEnemy(type='small', isSuper=false){
   const x=Math.random()*(W-60)+30;
   const y=-80;
   const zone=getZone(heightM);
@@ -1877,8 +1877,21 @@ function createEnemy(type='small'){
     obj.homeX=W/2;                             // 水平摆动中心
     obj.targetY=Math.min(120, H*0.17);         // 驻留目标Y（屏幕上方）
     obj.bobT=0;                                // 摆动相位计时
+    obj.entering=true;                         // v8.18: 进场状态（滑入后再驻留，避免边界抖动）
+    obj.ampX=W*0.22;                           // v8.18: 水平摆动幅度
     obj.shootMult=1+Math.min(1.2, bossKills*0.12); // 后续Boss普攻更频
     obj.skillAggro=0;                          // 技能凶狠度（阶段提升）
+    if(isSuper){                               // v8.18: 超级大Boss —— 压迫感强化
+      obj.w*=2.1; obj.h*=2.1;                  // 体型放大
+      obj.maxHp=obj.hp=Math.floor(getDynamicBossHP()*3.5); // 3.5倍血
+      obj.shootMult=1+Math.min(2.4, bossKills*0.18);      // 普攻更频
+      obj.skillAggro=1.0;                      // 技能更凶
+      obj.skillCooldown=2+Math.random()*1.5;   // 技能冷却更短
+      obj.phaseThresholds=[0.8,0.6,0.4,0.2];   // 更多阶段
+      obj.ampX=W*0.12;                         // 巨体缩小摆动幅度防贴边
+      obj.isSuper=true;
+      obj.name='【超级】'+obj.name;
+    }
   }
   return obj;
 }
@@ -3480,13 +3493,16 @@ function update(now){
   for(let i=enemies.length-1;i>=0;i--){
     const e=enemies[i];
     if(e.type==='boss'){
-      // v8.17: 驻留战斗 —— 从顶部进场后停在targetY并水平摆动，不向下消失
-      if(e.y < e.targetY - 2){
-        e.y += Math.min(e.targetY - e.y, 260*dt); // 进场滑入
+      // v8.18: 驻留战斗 —— 平滑进场到targetY后纯sin驻留，不再边界横跳导致哆嗦
+      if(e.entering){
+        e.y += (e.targetY - e.y) * Math.min(1, 6*dt);
+        e.x += (e.homeX - e.x) * Math.min(1, 4*dt);
+        if(Math.abs(e.y - e.targetY) < 1.5){ e.y = e.targetY; e.entering = false; }
       } else {
         e.bobT = (e.bobT||0) + dt;
-        e.x = e.homeX + Math.sin(e.bobT*0.7) * (W*0.26); // 水平巡逻
-        e.y = e.targetY + Math.sin(e.bobT*1.2) * 16;     // 轻微浮动
+        const ax = e.ampX || (W*0.22);
+        e.x = e.homeX + Math.sin(e.bobT*0.6) * ax;   // 平滑水平巡逻
+        e.y = e.targetY + Math.sin(e.bobT*1.1) * 12; // 平滑轻微浮动
       }
     } else {
       e.y+=e.vy*dt;e.x+=e.vx*dt;
@@ -3500,17 +3516,17 @@ function update(now){
     if(e.type==='boss'&&!e._phaseChanging){
       try{
         const hpRatio=e.hp/e.maxHp;
-        for(let ph=3;ph>=1;ph--){
+        for(let ph=e.phaseThresholds.length;ph>=1;ph--){
           if(e.phase<ph&&hpRatio<=e.phaseThresholds[ph-1]){
             e.phase=ph;
             e._phaseChanging=true;
             e._phaseChangeTimer=0.6; // v8.17: 阶段切换略长，给玩家反应
             e.invulnerable=0.6;
             // 阶段视觉：颜色随阶段变化
-            const phaseColors=['#f44','#f80','#f0f','#0ff'];
+            const phaseColors=['#f44','#f80','#f0f','#0ff','#fff'];
             e.strokeColor=phaseColors[ph]||'#f44';
             // v8.17: 阶段差异 —— 普攻更频、技能更凶、解锁狂暴技
-            e.shootMult=(1+Math.min(1.2, bossKills*0.12))*[1,1.25,1.6,2.1][ph];
+            const pm=[1,1.25,1.6,2.1,2.6]; e.shootMult=(1+Math.min(1.2, bossKills*0.12))*pm[Math.min(ph,pm.length-1)];
             e.skillAggro=ph;
             screenShakeTrauma=Math.min(1, screenShakeTrauma+.5);
             spawnParticles(e.x,e.y,30,e.strokeColor,160,.6,3);
@@ -3630,19 +3646,27 @@ function update(now){
   // 安全网：bossFight引用指向的对象不在敌人数组里时，清除引用
   if(bossFight && !enemies.includes(bossFight)) bossFight=null;
   if(heightM>=nextBossAt&&!bossFight){
-    const boss=createEnemy('boss');
+    bossSpawnCount++;
+    const isSuper = bossSpawnCount % 3 === 0;   // v8.18: 每第3个Boss为超级大Boss
+    const boss=createEnemy('boss', isSuper);
     boss.x=W/2;boss.y=-60;
     enemies.push(boss);bossFight=boss;
     SFX.bossWarning();
     // Boss出场台词含区域名
     const zone=getZone(heightM);
     const zoneName=zone.name;
-    const introQuotes=[
-      `⚠️ ${zoneName} — ${boss.title} 接近！`,
-      `警告：${zoneName}检测到BOSS信号！`,
-      `${zoneName}守卫者 — ${boss.name} 登场！`,
-    ][Math.floor(Math.random()*3)];
-    bossIntroAnnounce={active:true,timer:2.5,text:introQuotes,bossName:boss.name};
+    if(isSuper){
+      // v8.18: 超级大Boss 压迫感强化 —— 全屏红警 + 强震屏 + 短定格
+      screenShakeTrauma=1.0; hitStop=0.35;
+      bossIntroAnnounce={active:true,timer:4,text:`⚠️ 超级BOSS逼近 — ${boss.name} ⚠️`,bossName:boss.name,isSuper:true};
+    } else {
+      const introQuotes=[
+        `⚠️ ${zoneName} — ${boss.title} 接近！`,
+        `警告：${zoneName}检测到BOSS信号！`,
+        `${zoneName}守卫者 — ${boss.name} 登场！`,
+      ][Math.floor(Math.random()*3)];
+      bossIntroAnnounce={active:true,timer:2.5,text:introQuotes,bossName:boss.name,isSuper:false};
+    }
     // Boss战前剧情 — 用帧计时器延迟1.5秒（约90帧）替代setTimeout
     _bossStoryQueue={frame: frameCount+90, zone: zone, boss: boss};
     // Boss间隔：固定值，不随速度膨胀
@@ -3843,20 +3867,33 @@ function draw(offset){
   if(bossIntroAnnounce.active){
     const t=bossIntroAnnounce.timer;
     const alpha=Math.min(1,t/.3);
+    const isSuper=bossIntroAnnounce.isSuper;
     ctx.save();
     ctx.globalAlpha=alpha;
-    // 警告红底
-    ctx.fillStyle='rgba(255,0,0,0.15)';ctx.fillRect(0,0,W,60);
-    ctx.strokeStyle='rgba(255,60,0,0.5)';ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(0,60);ctx.lineTo(W,60);ctx.stroke();
-    // 主标题
-    ctx.fillStyle='#fff';ctx.font='bold 22px sans-serif';ctx.textAlign='center';
-    ctx.shadowColor='#f00';ctx.shadowBlur=18;
-    ctx.fillText(bossIntroAnnounce.text,W/2,28);
-    ctx.shadowBlur=0;
-    // Boss名字
-    ctx.fillStyle='#ff0';ctx.font='bold 16px sans-serif';
-    ctx.fillText(`—— ${bossIntroAnnounce.bossName} ——`,W/2,50);
+    if(isSuper){
+      // v8.18: 超级BOSS —— 全屏红警告，压迫感拉满
+      ctx.fillStyle='rgba(255,0,0,0.28)';ctx.fillRect(0,0,W,H);
+      ctx.strokeStyle='rgba(255,80,0,0.9)';ctx.lineWidth=6;ctx.strokeRect(4,4,W-8,H-8);
+      ctx.fillStyle='#fff';ctx.font='bold 30px sans-serif';ctx.textAlign='center';
+      ctx.shadowColor='#f00';ctx.shadowBlur=26;
+      ctx.fillText(bossIntroAnnounce.text,W/2,H/2-12);
+      ctx.shadowBlur=0;
+      ctx.fillStyle='#ff0';ctx.font='bold 20px sans-serif';
+      ctx.fillText(`—— ${bossIntroAnnounce.bossName} ——`,W/2,H/2+18);
+    } else {
+      // 警告红底
+      ctx.fillStyle='rgba(255,0,0,0.15)';ctx.fillRect(0,0,W,60);
+      ctx.strokeStyle='rgba(255,60,0,0.5)';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(0,60);ctx.lineTo(W,60);ctx.stroke();
+      // 主标题
+      ctx.fillStyle='#fff';ctx.font='bold 22px sans-serif';ctx.textAlign='center';
+      ctx.shadowColor='#f00';ctx.shadowBlur=18;
+      ctx.fillText(bossIntroAnnounce.text,W/2,28);
+      ctx.shadowBlur=0;
+      // Boss名字
+      ctx.fillStyle='#ff0';ctx.font='bold 16px sans-serif';
+      ctx.fillText(`—— ${bossIntroAnnounce.bossName} ——`,W/2,50);
+    }
     ctx.restore();
   }
 
