@@ -293,7 +293,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v8.16';
+const GAME_VERSION = 'v8.17';
 // v8.16: DevSquad专家团审计修复22项 — 星风暴清场/炸弹Boss收尾/死亡结局剧情/无人机友方弹/普通弹Boss剧情/退出存档/描边色/凤凰翼解锁/连击清零/死代码清理等
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
@@ -901,6 +901,44 @@ const BOSS_SKILLS_ADVANCED = {
   ]
 };
 
+// ==================== Boss狂暴技能（低血量阶段解锁）====================
+const BOSS_SKILLS_ENRAGE = {
+  corporate: [
+    {name:'审批风暴', weight:3, cooldown:5, fn(e){
+      for(let i=0;i<18;i++){const a=i*Math.PI*2/18;enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*150,vy:Math.sin(a)*150,life:3,alive:true,bulletType:'wave',isSkill:true});}
+      const dx=player.x-e.x,dy=player.y-e.y,dd=Math.hypot(dx,dy)||1;
+      for(let i=-1;i<=1;i++){enemyBullets.push({x:e.x,y:e.y,vx:dx/dd*380+i*30,vy:dy/dd*380,life:2.5,alive:true,bulletType:'fast',isSkill:true});}
+      screenShakeTrauma=Math.min(1,screenShakeTrauma+.4);
+    }}
+  ],
+  military: [
+    {name:'地毯轰炸', weight:3, cooldown:5, fn(e){
+      for(let i=0;i<6;i++){const side=i%2===0?0:W;for(let j=0;j<3;j++){enemyBullets.push({x:side,y:H*.1+j*H*.12,vx:side===0?300:-300,vy:0,life:2.2,alive:true,bulletType:'fast',isSkill:true});}}
+      screenShakeTrauma=Math.min(1,screenShakeTrauma+.3);
+    }}
+  ],
+  alien: [
+    {name:'群体狂乱', weight:3, cooldown:6, fn(e){
+      player.confused=1.2;
+      for(let i=0;i<3;i++){const m=createEnemy('small');m.x=e.x+(i-1)*50;m.y=e.y+30;m.name='狂乱体';m.hp=2;m.willSplit=true;enemies.push(m);}
+      spawnParticles(e.x,e.y+20,18,'#90f',90,.4,2);
+    }}
+  ],
+  cosmic: [
+    {name:'奇点坍缩', weight:3, cooldown:6, fn(e){
+      const gx=player.x,gy=player.y;
+      for(let i=0;i<14;i++){const a=i*Math.PI*2/14;enemyBullets.push({x:e.x+Math.cos(a)*60,y:e.y+Math.sin(a)*60,vx:Math.cos(a)*70,vy:Math.sin(a)*70,life:3,alive:true,bulletType:'orb',gravityTarget:{x:gx,y:gy,strength:320},isSkill:true});}
+      screenShakeTrauma=Math.min(1,screenShakeTrauma+.35);
+    }}
+  ],
+  void: [
+    {name:'终焉回响', weight:3, cooldown:5, fn(e){
+      for(let i=0;i<24;i++){const a=i*Math.PI*2/24;enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*170,vy:Math.sin(a)*170,life:3.5,alive:true,bulletType:'normal',isSkill:true});}
+      screenShakeTrauma=Math.min(1,screenShakeTrauma+.5);spawnParticles(e.x,e.y,30,'#a4f',160,.6,3);
+    }}
+  ]
+};
+
 // ==================== 动态难度递进 ====================
 function getDynamicScale(){
   // 随高度增加难度系数: 基础1x, 每1500米+0.6x, 上限6x
@@ -920,7 +958,9 @@ function getDynamicEnemyHP(baseHP){
   return Math.floor(baseHP * Math.min(12, 1 + heightM * 0.0008)); // 每1000米+80%，上限12x
 }
 function getDynamicBossHP(){
-  return Math.floor(diffCfg.bossHP * Math.min(8, 1 + heightM * 0.0006)); // 每1000米+60%，上限8x
+  const heightFactor=Math.min(8, 1 + heightM * 0.0006);      // 每1000米+60%，上限8x
+  const killFactor=1 + Math.min(2.5, bossKills * 0.35);       // 第N个Boss血量递增，上限3.5x
+  return Math.floor(diffCfg.bossHP * heightFactor * killFactor);
 }
 function getDynamicSpawnCount(){
   const base=diffCfg.spawnCount;
@@ -1832,6 +1872,13 @@ function createEnemy(type='small'){
     obj.skillTimer=obj.skillCooldown;
     obj.skillPattern=0;
     obj.invulnerable=0; // 无敌计时器
+    // v8.17: 驻留战斗 —— 停在屏幕上方与玩家持续交战，不向下消失
+    obj.vy=0;                                  // 取消持续下移
+    obj.homeX=W/2;                             // 水平摆动中心
+    obj.targetY=Math.min(120, H*0.17);         // 驻留目标Y（屏幕上方）
+    obj.bobT=0;                                // 摆动相位计时
+    obj.shootMult=1+Math.min(1.2, bossKills*0.12); // 后续Boss普攻更频
+    obj.skillAggro=0;                          // 技能凶狠度（阶段提升）
   }
   return obj;
 }
@@ -3432,8 +3479,19 @@ function update(now){
   const MAX_ENEMIES=dScaleNow>6?40:(dScaleNow>4?50:65);
   for(let i=enemies.length-1;i>=0;i--){
     const e=enemies[i];
-    e.y+=e.vy*dt;e.x+=e.vx*dt;
-    if(e.x<20||e.x>W-20) e.vx*=-1;
+    if(e.type==='boss'){
+      // v8.17: 驻留战斗 —— 从顶部进场后停在targetY并水平摆动，不向下消失
+      if(e.y < e.targetY - 2){
+        e.y += Math.min(e.targetY - e.y, 260*dt); // 进场滑入
+      } else {
+        e.bobT = (e.bobT||0) + dt;
+        e.x = e.homeX + Math.sin(e.bobT*0.7) * (W*0.26); // 水平巡逻
+        e.y = e.targetY + Math.sin(e.bobT*1.2) * 16;     // 轻微浮动
+      }
+    } else {
+      e.y+=e.vy*dt;e.x+=e.vx*dt;
+      if(e.x<20||e.x>W-20) e.vx*=-1;
+    }
     e.shootCooldown-=dt;
     if(e.telegraphTimer>0) e.telegraphTimer-=dt;
     if(e.invulnerable>0) e.invulnerable-=dt;
@@ -3446,11 +3504,17 @@ function update(now){
           if(e.phase<ph&&hpRatio<=e.phaseThresholds[ph-1]){
             e.phase=ph;
             e._phaseChanging=true;
-            e._phaseChangeTimer=0.3; // v6.7: 缩短到0.3秒
-            e.invulnerable=0.3;
-            // 只改颜色，不做其他任何事
+            e._phaseChangeTimer=0.6; // v8.17: 阶段切换略长，给玩家反应
+            e.invulnerable=0.6;
+            // 阶段视觉：颜色随阶段变化
             const phaseColors=['#f44','#f80','#f0f','#0ff'];
             e.strokeColor=phaseColors[ph]||'#f44';
+            // v8.17: 阶段差异 —— 普攻更频、技能更凶、解锁狂暴技
+            e.shootMult=(1+Math.min(1.2, bossKills*0.12))*[1,1.25,1.6,2.1][ph];
+            e.skillAggro=ph;
+            screenShakeTrauma=Math.min(1, screenShakeTrauma+.5);
+            spawnParticles(e.x,e.y,30,e.strokeColor,160,.6,3);
+            particles.push({x:e.x,y:e.y-30,vx:0,vy:-40,life:1.1,maxLife:1.1,size:14,color:'#ff0',text:'PHASE '+(e.phase+1),alive:true,type:'text'});
             console.log(`[Boss] → Phase ${ph}, HP:${Math.round(hpRatio*100)}%`);
             break;
           }
@@ -3472,7 +3536,7 @@ function update(now){
       // v6.12: enemyShoot加try-catch — 射击逻辑出错不能拖垮整个update
       try{
         if(enemyBullets.length<ebHardCap) enemyShoot(e);
-        e.shootCooldown=e.shootTimer*(.8+Math.random()*.4)*diffCfg.shootRateMult;
+        e.shootCooldown=e.shootTimer*(.8+Math.random()*.4)*diffCfg.shootRateMult/(e.shootMult||1);
       }catch(shootErr){
         console.error('[v6.12 enemyShoot] 异常(已隔离):', shootErr.message||shootErr);
         e.shootCooldown=1; // 出错后冷却1秒再试
@@ -3485,16 +3549,25 @@ function update(now){
         // v6.12: Boss技能fn(e)加try-catch — 技能函数出错不能拖垮整个update
         try{
           const baseSkills=BOSS_SKILLS[e.bossType]||BOSS_SKILLS['corporate'];
-          // 第2个Boss后激活进阶技能
-          const advSkills=(bossKills>=1&&BOSS_SKILLS_ADVANCED[e.bossType])?BOSS_SKILLS_ADVANCED[e.bossType]:[];
-          const skills=baseSkills.concat(advSkills);
+          // 进阶技能：第2个Boss后 或 进入第2阶段后解锁
+          const advSkills=((bossKills>=1||e.phase>=1)&&BOSS_SKILLS_ADVANCED[e.bossType])?BOSS_SKILLS_ADVANCED[e.bossType]:[];
+          // 狂暴技能：进入第2阶段后解锁（低血量更凶）
+          const enrageSkills=(e.phase>=1&&BOSS_SKILLS_ENRAGE[e.bossType])?BOSS_SKILLS_ENRAGE[e.bossType]:[];
+          const tagged=baseSkills.map(s=>({...s,tier:'base'}))
+            .concat(advSkills.map(s=>({...s,tier:'adv'})))
+            .concat(enrageSkills.map(s=>({...s,tier:'enrage'})));
+          // 按阶段加权：高阶段更偏向高阶/狂暴技能
+          const skills=tagged.map(s=>({...s, weight:
+            s.tier==='enrage'? s.weight*(e.phase>=2?2.4:0.3) :
+            s.tier==='adv'?    s.weight*(e.phase>=1?1.7:0.45) :
+                               s.weight }));
           if(skills&&skills.length>0){
             const totalW=skills.reduce((s,sk)=>s+sk.weight,0);
             let r=Math.random()*totalW,wAcc=0,picked=skills[0];
             for(let si=0;si<skills.length;si++){wAcc+=skills[si].weight;if(r<=wAcc){picked=skills[si];break;}}
             picked.fn(e);
-            // 冷却随高度递减（最低50%）
-            const cdMult=Math.max(.5, 1-heightM*0.00008);
+            // 冷却随高度与击杀数递减（后续Boss出手更快）
+            const cdMult=Math.max(.4, 1-heightM*0.00008) / (1+Math.min(1.2, bossKills*0.1));
             e.skillTimer=picked.cooldown*(.7+Math.random()*.6)*cdMult;
             if(picked.name&&e.y<H*.5){
               particles.push({x:e.x,y:e.y-30,vx:0,vy:-40,life:.8,maxLife:.8,size:12,color:'#ff0',text:picked.name,alive:true,type:'text'});
@@ -3507,9 +3580,8 @@ function update(now){
       }
     }
     
-    // 仅移出屏幕外的敌人（不含Boss上限清理——改到循环后从头删）
-    if(e.y>H+120){
-      if(e.type==='boss'&&bossFight===e) bossFight=null;
+    // 仅移出屏幕外的普通敌人；Boss驻留战斗，不在此删除（由死亡逻辑移除）
+    if(e.type!=='boss'&&e.y>H+120){
       enemies.splice(i,1);
     }
   }
@@ -3579,8 +3651,7 @@ function update(now){
     waveTimer=2;
   }
 
-  // Boss飞出屏幕太远 → 安全清除（防止卡死）
-  if(bossFight && bossFight.y>H+200){ bossFight=null; }
+  // v8.17: Boss驻留战斗，不会飞出屏幕，无需离屏清除（防止误删）
 
   // combo衰减
   if(frameCount%60===0&&combo>0) combo=Math.max(0,combo-1);
