@@ -213,14 +213,14 @@ canvas{display:block;width:100%;height:100%;}
     </div>
     <div class="menu-title">星际风筝传说</div>
     <div class="menu-title-en">STAR KITE LEGEND</div>
-    <div class="menu-sub">操控风筝穿越星际<br>点击射击 · 滑动移动 · 收集道具</div>
+    <div class="menu-sub">操控风筝穿越星际<br>自动射击 · 拖拽移动 · 收集道具</div>
     <div id="skin-selector"></div>
     <div class="diff-label">⚙️ 难度选择</div>
     <div id="difficulty-selector"></div>
     <button id="btn-start" onclick="startGame()">▶ 开始飞行</button>
     <button id="btn-leaderboard" onclick="showLeaderboard()">🏆 排行榜</button>
     <div class="menu-stats" id="menu-stats"></div>
-    <div class="menu-hint">触屏：拖拽移动 / 点击射击<br>键盘：← → 移动 / 空格射击 / B 炸弹 / P 暂停 / Q 退出</div>
+    <div class="menu-hint">触屏：拖拽移动（自动射击）<br>键盘：← → 移动 / B 炸弹 / E 星风暴 / Shift 集中 / P 暂停 / Q 退出</div>
   </div>
   <div class="menu-version" id="menu-version"></div>
 </div>
@@ -271,7 +271,7 @@ canvas{display:block;width:100%;height:100%;}
 <!-- 教程 -->
 <div id="tutorial" onclick="closeTutorial()">
   <div id="tut-skip" onclick="event.stopPropagation();closeTutorial();">跳过</div>
-  <div class="tut-text">🚀 星际风筝自动射击<br>👆 拖拽屏幕控制方向<br>💣 按 B 键释放炸弹<br>🌟 收集道具变强</div>
+  <div class="tut-text">🚀 自动射击 · 拖拽控制方向<br>💣 B 键炸弹清屏 · 🌟 E 键星风暴<br>⭐ 擦弹积攒能量 · 🔄 收集道具升级武器<br>⌨️ Shift 集中模式 · P 暂停 · Q 退出</div>
   <div class="tut-arrow">🌌</div>
 </div>
 
@@ -293,7 +293,8 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v8.14';
+const GAME_VERSION = 'v8.16';
+// v8.16: DevSquad专家团审计修复22项 — 星风暴清场/炸弹Boss收尾/死亡结局剧情/无人机友方弹/普通弹Boss剧情/退出存档/描边色/凤凰翼解锁/连击清零/死代码清理等
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
 // v6.8: story帧驱动重写+武器升级去重
@@ -717,7 +718,7 @@ const ENEMY_BULLET_TYPES = {
   explosive:{color:'#f80',icon:'◉',size:7,glow:'rgba(255,136,0,0.7)',inner:'rgba(255,255,200,0.9)',trail:'rgba(255,200,0,0.35)',willExplode:true},
   fast:   {color:'#fff',icon:'⚡',size:3,glow:'rgba(255,255,255,0.8)',inner:'rgba(255,255,255,1)',trail:'rgba(255,255,255,0.25)'},
   orb:    {color:'#a4f',icon:'◎',size:9,glow:'rgba(170,68,255,0.5)',inner:'rgba(255,255,255,0.6)',trail:'rgba(170,68,255,0.3)'},
-  laser:  {color:'#f22',icon:'▬',size:2,glow:'rgba(255,34,34,0.9)',inner:'#fff',trail:'rgba(255,0,0,0.4)',isBeam:true}
+  laser:  {color:'#f22',icon:'▬',size:2,glow:'rgba(255,34,34,0.9)',inner:'#fff',trail:'rgba(255,0,0,0.4)'}
 };
 
 // ==================== Boss技能系统 ====================
@@ -963,11 +964,11 @@ const WEAPON_TYPES = {
   homing: {
     name:'追踪弹', icon:'💛', color:'#ff0', desc:'自动追踪目标',
     levels:[
-      {count:1,speed:300,turnRate:5,life:3,size:6,shadowBlur:6,dmg:2,pierce:1},
+      {count:1,speed:300,turnRate:5,life:3,size:6,shadowBlur:6,dmg:2,pierce:0},
       {count:2,speed:340,turnRate:5.5,life:3,size:8,shadowBlur:8,dmg:2,pierce:1},
-      {count:3,speed:380,turnRate:6,life:3,size:10,shadowBlur:12,dmg:3,pierce:2},
-      {count:4,speed:420,turnRate:7,life:3,size:12,shadowBlur:16,dmg:4,pierce:2},
-      {count:4,speed:460,turnRate:8,life:3.5,size:14,shadowBlur:20,dmg:5,pierce:3}
+      {count:3,speed:380,turnRate:6,life:3,size:10,shadowBlur:12,dmg:3,pierce:1},
+      {count:4,speed:420,turnRate:7,life:3,size:12,shadowBlur:16,dmg:3,pierce:2},
+      {count:4,speed:460,turnRate:8,life:3.5,size:14,shadowBlur:20,dmg:4,pierce:2}
     ]
   }
 };
@@ -982,7 +983,7 @@ const SKINS = [
 
 function isSkinUnlocked(i){
   if(SKINS[i].unlock==='default') return true;
-  if(SKINS[i].unlock==='boss' && totalKills>=1) return true;
+  if(SKINS[i].unlock==='boss' && bossKills>=1) return true;
   if(SKINS[i].unlock==='height2000' && recordHeight>=2000) return true;
   if(SKINS[i].unlock==='coins1000' && totalCoins>=1000) return true;
   if(SKINS[i].unlock==='all') return achievements.length>=8;
@@ -1230,7 +1231,7 @@ function queueStory(storyArray,callback){
 
 // 每帧调用：推进story播放（在update()末尾调用）
 function updateStorySystem(){
-  if(!gameRunning) return; // 游戏暂停时story系统暂停
+  if(!gameRunning && _storyPending.length===0 && !_storyCurrent) return; // 结束态仍有结局剧情时允许渲染推进
   // v6.12: 整个story系统加try-catch — DOM操作出错不能拖垮update
   try{
   const box=document.getElementById('story-box');
@@ -1305,7 +1306,7 @@ function checkStoryTrigger(heightM){
 }
 function addScorePopup(x,y,text,color='#fff',size=16){
   // v6.4: 预计算rgba字符串，避免每帧parseColor
-  scorePopups.push({x,y,text,color,size,life:0.8,opacity:1,vy:-60,_rgba:'rgba('+parseColor(color)+',)'});
+  scorePopups.push({x,y,text,color,size,life:0.8,opacity:1,vy:-60,_rgb:parseColor(color)});
 }
 
 // ==================== 音效系统 (Web Audio API) ====================
@@ -1450,7 +1451,6 @@ const SEMI_FREEZE_MAX=180; // v8.4: 放宽到3秒@60fps，减少误触发
 // v6.14: 三重独立冻结检测 — 彻底根治"风筝能动其他不动"
 let _lastUpdateSuccess=0; // 上次update()成功执行的时间戳(ms)
 let _e0FreezeCounter=0;   // 第一个敌人Y坐标连续不变帧数
-let _lastE0Y=0;           // 上一帧第一个敌人的Y坐标
 let _consecutiveRecoveries=0; // 连续恢复次数（>=3进入安全模式）
 // v6.5.3: Boss出场剧情延迟队列（替代setTimeout）
 let _bossStoryQueue=null;
@@ -1458,7 +1458,7 @@ let _bossStoryQueue=null;
 let _delayedBullets=[], _delayedWaves=[];
 let feverGauge=0, feverActive=false, feverTimer=0, feverCount=0;
 let bombCount=3, weaponLevel=1;
-let bossFight=null, waveTimer=0, nextBossAt=500;
+let bossFight=null, waveTimer=0, nextBossAt=500, _lastBossHeight=0;
 let gameSpeed=1, gameTime=0;
 let itemsCollected=0, bossKills=0;
 let weapon3Start=0, weapon3Distance=0;
@@ -1477,7 +1477,7 @@ function resize(){
   W=canvas.width=window.innerWidth*(window.devicePixelRatio||1);
   H=canvas.height=window.innerHeight*(window.devicePixelRatio||1);
 }
-window.addEventListener('resize',resize); resize();
+window.addEventListener('resize',()=>{resize();initBg();}); resize();
 
 // ==================== 玩家 ====================
 function createPlayer(){
@@ -1633,11 +1633,7 @@ function drawPlayer(p){
     auraGrad.addColorStop(.7,weaponEvolved?'rgba(255,0,255,0.08)':'rgba(0,255,255,0.06)');
     auraGrad.addColorStop(1,'rgba(0,0,0,0)');
     ctx.fillStyle=auraGrad;ctx.beginPath();ctx.arc(0,0,45,0,Math.PI*2);ctx.fill();
-    // 偶发粒子拖尾
-    if(frameCount%3===0){
-      const pa=Math.random()*Math.PI*2;
-      particles.push(new Particle(p.x+Math.cos(pa)*30,p.y+Math.sin(pa)*30,Math.cos(pa)*30,Math.sin(pa)*30+20,.5,auraColor,2));
-    }
+    // 偶发粒子拖尾（已在 update 阶段生成，避免 draw 阶段修改游戏状态）
   }
 
   // 集中模式：显示命中点（3px小点）
@@ -1896,7 +1892,7 @@ function drawEnemy(e){
       }
       ctx.closePath();ctx.fill();
       // 用双层描边代替shadowBlur（性能更好）
-      ctx.strokeStyle=sc+'44';ctx.lineWidth=8;ctx.stroke();
+      ctx.strokeStyle='rgba('+parseColor(sc)+',0.27)';ctx.lineWidth=8;ctx.stroke();
       ctx.strokeStyle=sc;ctx.lineWidth=2.5;ctx.stroke();
     } else if(zone==='alien'){
       // 外星风格：不规则多边体
@@ -1905,7 +1901,7 @@ function drawEnemy(e){
       ctx.lineTo(42,20);ctx.lineTo(20,38);ctx.lineTo(-10,40);ctx.lineTo(-35,20);
       ctx.lineTo(-40,-5);ctx.lineTo(-25,-25);ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle=sc+'44';ctx.lineWidth=10;ctx.stroke();
+      ctx.strokeStyle='rgba('+parseColor(sc)+',0.27)';ctx.lineWidth=10;ctx.stroke();
       ctx.strokeStyle=sc;ctx.lineWidth=2.5;ctx.stroke();
       // 异星触手
       for(let i=0;i<4;i++){
@@ -1919,7 +1915,7 @@ function drawEnemy(e){
       // 宇宙风格：旋转椭圆体
       ctx.beginPath();
       ctx.ellipse(0,0,42,38,frameCount*.01,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle=sc+'44';ctx.lineWidth=12;ctx.stroke();
+      ctx.strokeStyle='rgba('+parseColor(sc)+',0.27)';ctx.lineWidth=12;ctx.stroke();
       ctx.strokeStyle=sc;ctx.lineWidth=2.5;ctx.stroke();
       // 光环
       ctx.beginPath();ctx.ellipse(0,0,50,20,frameCount*.02,0,Math.PI*2);
@@ -1945,7 +1941,7 @@ function drawEnemy(e){
       ctx.lineTo(10,40);ctx.lineTo(-10,40);ctx.lineTo(-30,25);ctx.lineTo(-40,0);
       ctx.lineTo(-30,-20);ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle=sc+'44';ctx.lineWidth=8;ctx.stroke();
+      ctx.strokeStyle='rgba('+parseColor(sc)+',0.27)';ctx.lineWidth=8;ctx.stroke();
       ctx.strokeStyle=sc;ctx.lineWidth=2.5;ctx.stroke();
     }
     // 能量核心
@@ -2356,16 +2352,18 @@ function activateStarStorm(){
     spawnParticles(b.x,b.y,5,'#0cf',60,.4,2);
   });
   enemyBullets=[];
-  // 伤害所有敌机
-  enemies.forEach(e=>{
+  // 伤害所有敌机（small/medium直接清除并计分，large/boss削减60%血量）
+  for(let i=enemies.length-1;i>=0;i--){
+    const e=enemies[i];
     if(e.type==='small'||e.type==='medium'){
-      e.hp=0;
+      score+=e.score;kills++;
       spawnParticles(e.x,e.y,15,'#ff0',100,.5,3);
+      enemies.splice(i,1);
     } else {
       e.hp=Math.max(1,Math.floor(e.hp*.4)); // v8.8: Boss掉60%血（更强力）
       spawnParticles(e.x,e.y,25,'#f80',120,.6,3);
     }
-  });
+  }
   // 全屏闪光粒子（增强）
   for(let i=0;i<120;i++){
     const ax=Math.random()*W, ay=Math.random()*H;
@@ -2609,6 +2607,13 @@ function showAchievement(){
 
 // ==================== 死亡慢镜头 ====================
 let deathSlowMo=0, deathTimer=0;
+// v8.15: 抽离统计存档逻辑，供 gameOver / quitGame 复用
+function persistStats(){
+  if(heightM>recordHeight) recordHeight=Math.floor(heightM);
+  SAVE.set('coins',totalCoins);SAVE.set('record',recordHeight);
+  SAVE.set('kills',totalKills);SAVE.set('games',gamesPlayed);
+}
+
 function gameOver(cause){
   gameRunning=false;gamePaused=false;player.alive=false;
   // v6.5.2: 关闭武器升级面板，防止状态残留
@@ -2624,19 +2629,12 @@ function gameOver(cause){
   deathTimer=1.5;
   // 结局剧情（根据高度决定是悲壮结局还是英雄结局）
   const storyKey=heightM>=2000?'gameOverGood':'gameOver';
-  setTimeout(()=>queueStory(STORY_DATA[storyKey]),800);
+  setTimeout(()=>{ if(gameRunning) return; queueStory(STORY_DATA[storyKey]); },800);
 
   const earned=Math.floor(score/10);
   totalCoins+=earned;gamesPlayed++;totalKills+=kills;
-  if(heightM>recordHeight) recordHeight=Math.floor(heightM);
-  SAVE.set('coins',totalCoins);SAVE.set('record',recordHeight);
-  SAVE.set('kills',totalKills);SAVE.set('games',gamesPlayed);
+  persistStats();
   saveDaily();
-
-  // Boss累积击杀
-  let thisBossKills=0;
-  const bIndex=achievements.findIndex(a=>a.id==='boss_slayer');
-  if(bIndex>=0) thisBossKills=totalKills;
 
   // 检查成就
   const stats={
@@ -2649,7 +2647,7 @@ function gameOver(cause){
   });
 
   setTimeout(()=>{
-    // 排行榜
+    if(gameRunning) return; // 防止快速重开后旧定时器覆盖状态
     const newEntry={score:Math.floor(score),height:Math.floor(heightM),kills,date:new Date().toLocaleDateString()};
     const lb=getLeaderboard();
     // 检查是否进入排行榜
@@ -2661,7 +2659,7 @@ function gameOver(cause){
     if(idx>=0) lbRank=idx+1;
     SAVE.set('leaderboard',top10);
 
-    document.getElementById('go-title').textContent=cause==='被击中了'?'被击落了':'坠落了';
+    document.getElementById('go-title').textContent='坠落了…';
     document.getElementById('go-cause').textContent=cause;
     document.getElementById('go-height').textContent=Math.floor(heightM)+'m';
     document.getElementById('go-score').textContent=score;
@@ -2847,6 +2845,9 @@ function update(now){
   if(!gameRunning){
     if(deathSlowMo>0){deathSlowMo-=(now-lastTime)/1000;if(deathSlowMo<0)deathSlowMo=0;}
     if(deathTimer>0){deathTimer-=(now-lastTime)/1000;}
+    // v8.15: 游戏结束后仍需推进结局剧情（允许玩家看到结局文字）
+    if(_storyPending.length>0||_storyCurrent) updateStorySystem();
+    lastTime=now;
     return;
   }
   dt=Math.min((now-lastTime)/1000,.05);
@@ -2994,8 +2995,26 @@ function update(now){
           spawnParticles(e.x,e.y,20,e.color,150,.5,3);
           spawnParticles(e.x,e.y,10,'#fff',80,.3,2);
           spawnParticles(e.x,e.y,8,'#c0f',60,.2,2);
-          score+=e.boss?200:30;
-          if(!e.boss)kills++;
+          if(e.type==='boss'){
+            // 复用与激光/普通子弹击杀 Boss 一致的统一步骤：2000分、bossKills++、掉道具、触发剧情与成就
+            score+=2000;bossKills++;
+            dailyMissions.missions.forEach(m=>{if(m.type==='boss'&&!m.done)m.progress++;});
+            bossFight=null;
+            bossKillAnnounce={active:true,timer:2.5,text:'⚡ BOSS 陨落！⚡'};
+            spawnParticles(e.x,e.y,50,'#f00',200,.8,4);
+            if(player.hp<player.maxHp){player.hp=Math.min(player.maxHp,player.hp+2);addScorePopup(e.x,e.y-30,'HP+2','#0f0',14);}
+            dailyMissions.missions.forEach(m=>{if(m.type==='boss'&&!m.done)m.progress++;});
+            const killZoneB=getZone(heightM);
+            const killPoolB=STORY_DATA.bossKillByTheme[killZoneB.theme];
+            const killStoryB=killPoolB&&killPoolB.length>0?killPoolB[Math.floor(Math.random()*killPoolB.length)]:STORY_DATA.bossKill;
+            try{queueStory(killStoryB);}catch(qe){console.warn('[v6.12] bossKill story err:',qe);}
+            items.push(createItem(e.x,e.y,'weapon'));items.push(createItem(e.x-20,e.y,'bomb'));items.push(createItem(e.x+20,e.y,'star'));items.push(createItem(e.x,e.y-20,'shield'));items.push(createItem(e.x-10,e.y-10,'coin'));items.push(createItem(e.x+10,e.y-10,'coin'));
+            if(drones.length<3) items.push(createItem(e.x,e.y+20,'drone'));
+            if(heightM>500&&!weaponEvolved&&Math.random()<.2) items.push(createItem(e.x,e.y-20,'evolve'));
+            if(Math.random()<.5) items.push(createItem(e.x,e.y-30,'health'));
+          } else {
+            score+=30;kills++;
+          }
           enemies.splice(i,1);
         }
       }
@@ -3007,8 +3026,7 @@ function update(now){
       }
       // 冲击波覆盖全屏后收尾
       if(_bombWave>_bombMaxR){
-        enemies.forEach(e=>{score+=e.boss?200:30;if(!e.boss)kills++;});
-        score+=Math.floor(enemies.length*30);
+        enemies.forEach(e=>{ if(e.type==='boss'){score+=2000;bossKills++;dailyMissions.missions.forEach(m=>{if(m.type==='boss'&&!m.done)m.progress++;});bossFight=null;} else {score+=30;kills++;} });
         enemies=[];enemyBullets=[];
         _delayedBullets=[];_delayedWaves=[];
         _bombWave=0;
@@ -3017,7 +3035,7 @@ function update(now){
     }
 
     player.shootTimer-=dt;
-    if(player.shootTimer<=0){shoot(player);player.shootTimer=weaponType==='laser'?0.4:player.shootRate;}
+    if(player.shootTimer<=0){shoot(player);player.shootTimer=weaponType==='laser'?0.4*(player.shootRate/0.18):player.shootRate;}
 
     if(feverActive){
       feverTimer-=dt;
@@ -3028,6 +3046,12 @@ function update(now){
     // 粒子：只在总数<250时生成，降低频率
     if(particles.length<250&&Math.random()<.15){
       particles.push(new Particle(player.x+(Math.random()-.5)*16,player.y+24,0,140+Math.random()*80,.4,'#0cf',1+Math.random()));
+    }
+    // v8.15: 进化/满级光环拖尾粒子（在 update 阶段生成，避免 draw 阶段修改 particles）
+    if((weaponLevel>=5||weaponEvolved)&&particles.length<250&&frameCount%3===0){
+      const auraColor=weaponEvolved?'#f0f':(weaponType==='laser'?'#f44':(weaponType==='refract'?'#0f0':(weaponType==='homing'?'#ff0':'#0cf')));
+      const pa=Math.random()*Math.PI*2;
+      particles.push(new Particle(player.x+Math.cos(pa)*30,player.y+Math.sin(pa)*30,Math.cos(pa)*30,Math.sin(pa)*30+20,.5,auraColor,2));
     }
   }
   }catch(e){console.error('[update v8.3 阶段B]',e.message||e);} try{
@@ -3227,7 +3251,7 @@ function update(now){
             screenShakeTrauma=Math.min(1,Math.max(screenShakeTrauma,e.type==='boss'?.7:(e.type==='large'?.3:.12)));
             hitStop=e.type==='boss'?.15:(e.type==='large'?.04:.02);
             addScorePopup(e.x,e.y-10,'+'+e.score,e.color,e.type==='boss'?22:(e.type==='large'?18:14));
-            const mult=player.score2xTimer>0?2:1+(currentSkin===1?.1:0);
+            const mult=player.score2xTimer>0?2:1+(currentSkin===1?.1:0)+(currentSkin===2&&heightM>=1500?1:0);
             const addScore=e.score*mult;
             score+=addScore;kills++;combo++;
             if(combo>maxCombo) maxCombo=combo;
@@ -3298,7 +3322,7 @@ function update(now){
           hitStop=e.type==='boss'?.15:(e.type==='large'?.04:.02);
           addScorePopup(e.x,e.y-10,'+'+e.score,e.color,e.type==='boss'?22:(e.type==='large'?18:14));
 
-          const mult=player.score2xTimer>0?2:1+(currentSkin===1?.1:0);
+          const mult=player.score2xTimer>0?2:1+(currentSkin===1?.1:0)+(currentSkin===2&&heightM>=1500?1:0);
           const addScore=e.score*mult;
           score+=addScore;kills++;combo++;
           if(combo>maxCombo) maxCombo=combo;
@@ -3314,15 +3338,11 @@ function update(now){
             // Boss击杀全屏特效
             const bossKillTexts=['⚡ BOSS 陨落！⚡','💀 甲方之王 倒下了','🔥 996 永恒帝 已被推翻','⚡ 需求黑洞 已关闭','💥 年终奖清零者 已清零','⚡ KPI终结者 已终结','🔥 无限需求体 已饱和','⚡ PUA大师 已下线'][Math.floor(Math.random()*8)];
             bossKillAnnounce={active:true,timer:2,text:bossKillTexts};
-            // Boss击杀剧情 — 按区域选专属台词
-            setTimeout(()=>{
-              try{
-                const killZone2=getZone(heightM);
-                const killPool2=STORY_DATA.bossKillByTheme[killZone2.theme];
-                const killStory2=killPool2&&killPool2.length>0?killPool2[Math.floor(Math.random()*killPool2.length)]:STORY_DATA.bossKill;
-                queueStory(killStory2);
-              }catch(qe2){console.warn('[v6.12] bossKill story(延迟) err:',qe2);}
-            },2200);
+            // Boss击杀剧情 — 按区域选专属台词（与激光击杀保持一致，直接入队）
+            const killZone2=getZone(heightM);
+            const killPool2=STORY_DATA.bossKillByTheme[killZone2.theme];
+            const killStory2=killPool2&&killPool2.length>0?killPool2[Math.floor(Math.random()*killPool2.length)]:STORY_DATA.bossKill;
+            try{queueStory(killStory2);}catch(qe2){console.warn('[v6.12] bossKill story err:',qe2);}
             spawnParticles(e.x,e.y,50,'#ff0',200,.8,4);spawnParticles(e.x,e.y,35,'#f44',160,.6,3);
             spawnParticles(e.x,e.y,20,'#fff',120,.5,2);
             screenShakeTrauma=.8;hitStop=.2;
@@ -3365,7 +3385,7 @@ function update(now){
           enemies.splice(ei,1);
         } else {
           // v8.8: 扣血+无敌帧+强打击感
-          player.hp--;player.invincible=2.0;player.damageFlash=.25;
+          player.hp--;player.invincible=2.0;player.damageFlash=.25;combo=0;
           screenShakeTrauma=1.2;damageVignette=.5;hitStop=.18;
           // 击退效果
           const kdx=player.x-e.x,kdy=player.y-e.y,kdist=Math.hypot(kdx,kdy)||1;
@@ -3386,9 +3406,10 @@ function update(now){
   if(player.alive&&player.invincible<=0){
     for(let bi=enemyBullets.length-1;bi>=0;bi--){
       const b=enemyBullets[bi];
+      if(b.isDrone) continue; // v8.15: 无人机友方子弹不伤玩家
       if(Math.abs(b.x-player.x)<14&&Math.abs(b.y-player.y)<18){
         // v8.8: 扣血+无敌帧+强打击感
-        player.hp--;player.invincible=2.0;player.damageFlash=.25;
+        player.hp--;player.invincible=2.0;player.damageFlash=.25;combo=0;
         screenShakeTrauma=1.0;damageVignette=.45;hitStop=.12;
         // 击退效果
         const kdx2=b.vx,kdy2=b.vy,kspd2=Math.hypot(kdx2,kdy2)||1;
@@ -3437,7 +3458,6 @@ function update(now){
       }catch(err){
         console.error('[Boss Phase Error]',err);
         e._phaseChanging=false;
-        if(!gameRunning){gameRunning=true;weaponUpgradeActive=false;}
       }
     }
     // 阶段转换计时器递减（替代setTimeout）
@@ -3555,6 +3575,7 @@ function update(now){
     _bossStoryQueue={frame: frameCount+90, zone: zone, boss: boss};
     // Boss间隔：固定值，不随速度膨胀
     nextBossAt+=diffCfg.bossInterval+Math.random()*(diffCfg.bossInterval*.3);
+    _lastBossHeight=heightM;
     waveTimer=2;
   }
 
@@ -3598,13 +3619,15 @@ function update(now){
   if(_bossStoryQueue&&frameCount>=_bossStoryQueue.frame){
     try{
       const bs=_bossStoryQueue;
-      const theme=bs.zone.theme;
-      const prePool=STORY_DATA.bossPreByTheme[theme];
-      if(prePool&&prePool.length>0){
-        const picked=prePool[Math.floor(Math.random()*prePool.length)];
-        queueStory(picked.lines||picked);
-      } else {
-        queueStory([{speaker:'任务指挥中心',text:`${bs.zone.name}区域 — Boss单位${bs.boss.name}出现！`,delay:0}]);
+      if(enemies.includes(bs.boss)){
+        const theme=bs.zone.theme;
+        const prePool=STORY_DATA.bossPreByTheme[theme];
+        if(prePool&&prePool.length>0){
+          const picked=prePool[Math.floor(Math.random()*prePool.length)];
+          queueStory(picked.lines||picked);
+        } else {
+          queueStory([{speaker:'任务指挥中心',text:`${bs.zone.name}区域 — Boss单位${bs.boss.name}出现！`,delay:0}]);
+        }
       }
     }catch(e){console.warn('[BossStory] 剧情播放出错:',e);}
     _bossStoryQueue=null;
@@ -3738,7 +3761,7 @@ function draw(offset){
 
   // 得分飘字（v6.4: 用预计算颜色，避免每帧parseColor）
   scorePopups.forEach(s=>{
-    ctx.fillStyle=s._rgba.replace(')',','+s.opacity+')');
+    ctx.fillStyle='rgba('+s._rgb+','+s.opacity+')';
     ctx.font=`bold ${s.size}px sans-serif`;
     ctx.textAlign='center';
     ctx.fillText(s.text,s.x,s.y);
@@ -3900,7 +3923,7 @@ function draw(offset){
   for(let i=1;i<player.maxHp;i++){ctx.strokeStyle='rgba(0,0,0,0.3)';ctx.lineWidth=.5;ctx.beginPath();ctx.moveTo(hudX+4+i*(hpBarW/player.maxHp),hpy+2);ctx.lineTo(hudX+4+i*(hpBarW/player.maxHp),hpy+2+hpBarH);ctx.stroke();}
   ctx.strokeStyle='rgba(255,100,100,0.6)';ctx.lineWidth=1.5;ctx.strokeRect(hudX+4,hpy+2,hpBarW,hpBarH);
   // 星风暴能量槽（下移）
-  ctx.fillStyle='#0cf';ctx.font='bold 11px sans-serif';ctx.fillText('STORRM',hudX+4,204);
+  ctx.fillStyle='#0cf';ctx.font='bold 11px sans-serif';ctx.fillText('STORM',hudX+4,204);
   ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(hudX+4,208,90,8);
   const sgPct=starStormGauge/100;
   const sgGrad=ctx.createLinearGradient(hudX+4,0,hudX+4+90*sgPct,0);
@@ -3947,7 +3970,7 @@ function draw(offset){
     if(hpR<=.3&&Math.sin(frameCount*.3)>0) ctx.fillStyle='#ff0';
     ctx.fillRect(bx,by,bw*hpR,bh);
     ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
-    ctx.fillText(`BOSS ${Math.floor(hpR*100)}%`,W/2,by+11);
+    ctx.fillText(`${bossFight.name||'BOSS'} ${Math.floor(hpR*100)}%`,W/2,by+11);
     ctx.textAlign='left';
   }
 
@@ -3999,7 +4022,8 @@ function draw(offset){
 
   // 进度条 (底部)
   const pbY=H-8,pbW=W*.5,pbX=(W-pbW)/2;
-  const progressToBoss=heightM%500/500;
+  const bossProgressSpan=Math.max(1,nextBossAt-_lastBossHeight);
+  const progressToBoss=Math.max(0,Math.min(1,(heightM-_lastBossHeight)/bossProgressSpan));
   ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(pbX-1,pbY-1,pbW+2,6);
   ctx.strokeStyle='rgba(0,200,255,0.2)';ctx.strokeRect(pbX-1,pbY-1,pbW+2,6);
   ctx.fillStyle='#0cf';ctx.fillRect(pbX,pbY,pbW*progressToBoss,4);
@@ -4059,7 +4083,7 @@ function gameLoop(now){
 
   // ── 阶段2: update() — 独立try-catch，出错不影响后续看门狗和draw ──
   try {
-    if((gameRunning&&!gamePaused)||deathSlowMo>0) {
+    if((gameRunning&&!gamePaused)||deathSlowMo>0||(!gameRunning&&(_storyPending.length>0||_storyCurrent))) {
       update(now);
     }
     // v6.14: update()成功时间戳 — 只有成功执行才更新
@@ -4341,6 +4365,7 @@ function quitGame(){
   if(score>0 && gameRunning){
     addToLeaderboard();
   }
+  persistStats(); // v8.15: 退出时也存档统计项（与 gameOver 一致）
   gamePaused=false;gameRunning=false;deathSlowMo=0;deathTimer=0;
   stopBGM();
   backToMenu();
@@ -4355,7 +4380,7 @@ function startGame(){
   _bossStoryQueue=null; // v6.5.3: 重置Boss剧情队列
   _watchdogTimer=0; _lastWatchdogFingerprint=0; // v6.6.1: 重置看门狗
   _semiFreezeCounter=0; _lastEntityCount=0; // v6.13: 重置半冻结检测
-  _lastUpdateSuccess=0; _e0FreezeCounter=0; _lastE0Y=0; _consecutiveRecoveries=0; // v6.14: 重置冻结检测
+  _lastUpdateSuccess=0; _e0FreezeCounter=0; _consecutiveRecoveries=0; // v6.14: 重置冻结检测
   _fpsSamples=[];_adaptMaxEB=200;_adaptMaxP=300; // v6.0: 每局重置FPS自适应
   scorePopups=[];
   // v6.5.2: 重置遗漏的状态变量
@@ -4370,7 +4395,7 @@ function startGame(){
   screenShakeTrauma=0;hitStop=0;damageVignette=0;_damageFlash=0;_bombFlash=0;_bombCenterFlash=0;_bombWave=0;
   feverGauge=0;feverActive=false;feverTimer=0;feverCount=0;
   bombCount=diffCfg.startBombs;weaponLevel=1;weaponType='spread';weaponEvolved=false;
-  bossFight=null;waveTimer=.3;nextBossAt=diffCfg.bossInterval;
+  bossFight=null;waveTimer=.3;nextBossAt=diffCfg.bossInterval;_lastBossHeight=0;
   gameSpeed=diffCfg.speedMult;frameCount=0;gameTime=0;
   itemsCollected=0;deathSlowMo=0;deathTimer=0;
   weapon3Start=0;weapon3Distance=0;
@@ -4460,7 +4485,7 @@ for(let i=0;i<30;i++){
 }
 
 draw(0);
-window.addEventListener('resize',()=>{resize();initBg();});
+// v8.15: resize 监听已统一到初始化处(1480)，此处移除重复绑定
 
 // 版本号显示
 document.getElementById('menu-version').textContent = GAME_VERSION + ' · ' + BUILD_DATE;
