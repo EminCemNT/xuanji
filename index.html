@@ -220,6 +220,7 @@ canvas{display:block;width:100%;height:100%;}
     <button id="btn-start" onclick="startGame()">▶ 开始飞行</button>
     <button id="btn-leaderboard" onclick="showLeaderboard()">🏆 排行榜</button>
     <div class="menu-stats" id="menu-stats"></div>
+    <div class="menu-chapter" id="menu-chapter"></div>
     <div class="menu-hint">触屏：拖拽移动（自动射击）<br>键盘：← → 移动 / B 炸弹 / E 星风暴 / Shift 集中 / P 暂停 / Q 退出</div>
   </div>
   <div class="menu-version" id="menu-version"></div>
@@ -234,6 +235,7 @@ canvas{display:block;width:100%;height:100%;}
     <div class="go-stat"><span>总得分</span><span id="go-score">0</span></div>
     <div class="go-stat"><span>击杀数</span><span id="go-kills">0</span></div>
     <div class="go-stat"><span>最大连击</span><span id="go-combo">0</span></div>
+    <div class="go-stat"><span>到达章节</span><span id="go-chapter">第 1 章</span></div>
     <div class="go-coins">🪙 +<span id="go-coins">0</span></div>
     <div id="go-newRecord" style="display:none;color:#0ff;font-weight:700;font-size:13px;animation:blink .5s infinite;margin-bottom:8px;">🏆 新纪录！</div>
     <div id="go-share" style="display:none;margin-bottom:8px;"></div>
@@ -293,7 +295,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v8.20';
+const GAME_VERSION = 'v8.21';
 // v8.16: DevSquad专家团审计修复22项 — 星风暴清场/炸弹Boss收尾/死亡结局剧情/无人机友方弹/普通弹Boss剧情/退出存档/描边色/凤凰翼解锁/连击清零/死代码清理等
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
@@ -398,7 +400,20 @@ const ZONES = [
   }
 ];
 
-function getZone(heightM){
+// ==================== 章节系统 (v8.21) ====================
+// 章节由"已击破Boss数+1"驱动；每章一个主题(复用ZONES 5主题循环)、专属名字、递增难度
+const CHAPTER_NAMES = [
+  '低轨职场','平流禁区','外星遗迹','深空法则','虚空尽头',
+  '轮回·低轨','轮回·禁区','轮回·遗迹','轮回·深空','轮回·归墟',
+  '终焉·低轨','终焉·禁区','终焉·遗迹','终焉·深空','终焉·归墟'
+];
+function getChapterTheme(ch){ return ZONES[((ch-1)%ZONES.length+ZONES.length)%ZONES.length].theme; }
+function getChapterName(ch){ return CHAPTER_NAMES[((ch-1)%CHAPTER_NAMES.length+CHAPTER_NAMES.length)%CHAPTER_NAMES.length]; }
+function getZone(heightM, themeOverride){
+  if(themeOverride){
+    for(let i=0;i<ZONES.length;i++){ if(ZONES[i].theme===themeOverride) return ZONES[i]; }
+    return ZONES[0];
+  }
   for(let i=ZONES.length-1;i>=0;i--){
     if(heightM>=ZONES[i].from) return ZONES[i];
   }
@@ -941,8 +956,9 @@ const BOSS_SKILLS_ENRAGE = {
 
 // ==================== 动态难度递进 ====================
 function getDynamicScale(){
-  // 随高度增加难度系数: 基础1x, 每1500米+0.6x, 上限6x
-  return Math.min(6, 1 + heightM / 1500);
+  // 随高度增加难度系数: 基础1x, 每1500米+0.6x, 上限6x；v8.21: 叠加章节因子
+  const chF=1+Math.min(1.2,(currentChapter-1)*0.06);
+  return Math.min(6, (1 + heightM / 1500) * chF);
 }
 
 function getDynamicSpawnMin(){
@@ -952,19 +968,22 @@ function getDynamicSpawnMax(){
   return Math.max(0.03, diffCfg.spawnMax / getDynamicScale());
 }
 function getDynamicBulletSpeed(){
-  return diffCfg.bulletSpeedMult * Math.min(5, 1 + heightM * 0.0006); // 每1000米+60%，上限5x
+  const chF=1+Math.min(0.8,(currentChapter-1)*0.05); // v8.21: 章节递增
+  return diffCfg.bulletSpeedMult * Math.min(5, (1 + heightM * 0.0006) * chF);
 }
 function getDynamicEnemyHP(baseHP){
-  return Math.floor(baseHP * Math.min(12, 1 + heightM * 0.0008)); // 每1000米+80%，上限12x
+  const chF=1+Math.min(2,(currentChapter-1)*0.08); // v8.21: 章节递增
+  return Math.floor(baseHP * Math.min(12, 1 + heightM * 0.0008) * chF);
 }
 function getDynamicBossHP(){
   const heightFactor=Math.min(8, 1 + heightM * 0.0006);      // 每1000米+60%，上限8x
   const killFactor=1 + Math.min(2.5, bossKills * 0.35);       // 第N个Boss血量递增，上限3.5x
-  return Math.floor(diffCfg.bossHP * heightFactor * killFactor);
+  const chapterFactor=1 + Math.min(1.5, (currentChapter-1) * 0.12); // v8.21: 章节递增，上限2.5x
+  return Math.floor(diffCfg.bossHP * heightFactor * killFactor * chapterFactor);
 }
 function getDynamicSpawnCount(){
   const base=diffCfg.spawnCount;
-  const extra=Math.floor(heightM/800); // 每800米+1怪
+  const extra=Math.floor(heightM/800) + Math.floor((currentChapter-1)/2); // v8.21: 每2章+1怪
   return base + extra;
 }
 
@@ -1501,6 +1520,9 @@ let bombCount=3, weaponLevel=1;
 let bossFight=null, waveTimer=0, nextBossAt=500, _lastBossHeight=0, bossSpawnCount=0;
 let gameSpeed=1, gameTime=0;
 let itemsCollected=0, bossKills=SAVE.get('bossKills',0);
+// v8.21: 章节系统 — 当前章节/历史最高章节/本章主题/章节过场
+let currentChapter=1, maxChapter=SAVE.get('maxChapter',1), chapterTheme=getChapterTheme(1);
+let chapterAnnounce={active:false,timer:0,text:'',sub:'',theme:'corporate'};
 let weapon3Start=0, weapon3Distance=0;
 let dailyMissions = getDailyMissions();
 let lastZone='corporate';
@@ -1825,7 +1847,7 @@ const ENEMY_NAMES={
 function createEnemy(type='small', isSuper=false){
   const x=Math.random()*(W-60)+30;
   const y=-80;
-  const zone=getZone(heightM);
+  const zone=getZone(heightM, chapterTheme);
   const dScale=getDynamicScale();
   const types={
     small:{w:22,h:24,hp:1,score:100,speed:150,shootT:1.0},
@@ -2676,6 +2698,23 @@ function persistStats(){
   SAVE.set('kills',totalKills);SAVE.set('games',gamesPlayed);SAVE.set('bossKills',bossKills);
 }
 
+// v8.21: Boss 真正死亡时调用 — 章节推进/存档/通关奖励/过场
+function onBossDefeated(){
+  currentChapter++;
+  if(currentChapter>maxChapter){ maxChapter=currentChapter; SAVE.set('maxChapter',maxChapter); }
+  chapterTheme=getChapterTheme(currentChapter);
+  // 章节通关奖励：清屏敌弹 + 回血 + 道具雨 + 分数
+  enemyBullets=[];
+  if(player&&player.alive&&player.hp<player.maxHp) player.hp=Math.min(player.maxHp,player.hp+1);
+  score+=500*currentChapter;
+  const cx=player?player.x:W/2, cy=player?player.y:H*.7;
+  ['weapon','bomb','star','shield','coin','coin'].forEach(t=>{
+    items.push(createItem(cx+(Math.random()-.5)*120, cy-40-Math.random()*60, t));
+  });
+  // 章节过场
+  chapterAnnounce={active:true,timer:3.0,text:'第 '+currentChapter+' 章',sub:getChapterName(currentChapter),theme:chapterTheme};
+  addScorePopup(W/2,H*.4,'第 '+currentChapter+' 章 · '+getChapterName(currentChapter),'#0ff',24);
+}
 function gameOver(cause){
   gameRunning=false;gamePaused=false;player.alive=false;
   // v6.5.2: 关闭武器升级面板，防止状态残留
@@ -2727,6 +2766,7 @@ function gameOver(cause){
     document.getElementById('go-score').textContent=score;
     document.getElementById('go-kills').textContent=kills;
     document.getElementById('go-combo').textContent=maxCombo;
+    document.getElementById('go-chapter').textContent='第 '+currentChapter+' 章';
     document.getElementById('go-coins').textContent=earned;
     document.getElementById('go-newRecord').style.display=(heightM>=recordHeight&&heightM>10)?'block':'none';
     
@@ -2827,6 +2867,9 @@ function saveDaily(){
 function refreshMenu(){
   document.getElementById('menu-stats').innerHTML=
     `🏆 最高: ${recordHeight}m &nbsp;|&nbsp; 🪙 ${totalCoins} &nbsp;|&nbsp; 🎮 ${gamesPlayed}局`;
+  // v8.21: 显示历史最高章节
+  const mcEl=document.getElementById('menu-chapter');
+  if(mcEl) mcEl.innerHTML=`📖 历史最高：第 ${maxChapter} 章 · ${getChapterName(maxChapter)}`;
   renderSkinSelector();
   renderDifficultySelector();
 }
@@ -2993,21 +3036,9 @@ function update(now){
   gameSpeed=Math.min(8, diffCfg.speedMult+heightM/5000);
   // 剧情触发检查（每帧检查，但有触发冷却）
   if(frameCount%120===0) checkStoryTrigger(heightM);
-  // 分区切换检测
-  const curZ=getZone(heightM);
-  if(curZ.theme!==lastZone){
-    lastZone=curZ.theme;
-    // 区域切换提示
-    const zoneEnterTexts={
-      corporate:'🟡 进入低轨道 — 职场废土',
-      military:'🟠 进入平流层 — 军事禁区',
-      alien:'🟣 进入太空边缘 — 外星遗迹',
-      cosmic:'💗 进入深空 — 宇宙法则失效',
-      void:'⬜ 进入虚空 — 超越理解的领域'
-    };
-    addScorePopup(W/2,H*.35,zoneEnterTexts[curZ.theme]||curZ.name,'#0ff',20);
-    SFX.fever();
-  }
+  // v8.21: 主题由章节驱动 — 章节切换时仅更新 lastZone，过场由 chapterAnnounce 统一展示
+  const curZ=getZone(heightM, chapterTheme);
+  if(curZ.theme!==lastZone) lastZone=curZ.theme;
 
   // 满级武器飞行距离
   const maxLvl=(WEAPON_TYPES[weaponType]?.levels.length||3);
@@ -3072,14 +3103,14 @@ function update(now){
               // bombShield 降到0：第二次炸弹，落到下方统一收尾击杀
             }
             // 普通Boss / 已达2次炸弹的超级Boss：复用统一收尾（2000分/bossKills++/掉道具/剧情/成就）
-            score+=2000;bossKills++;
+            score+=2000;bossKills++; onBossDefeated();
             dailyMissions.missions.forEach(m=>{if(m.type==='boss'&&!m.done)m.progress++;});
             bossFight=null;
             bossKillAnnounce={active:true,timer:2.5,text:'⚡ BOSS 陨落！⚡'};
             spawnParticles(e.x,e.y,50,'#f00',200,.8,4);
             if(player.hp<player.maxHp){player.hp=Math.min(player.maxHp,player.hp+2);addScorePopup(e.x,e.y-30,'HP+2','#0f0',14);}
             dailyMissions.missions.forEach(m=>{if(m.type==='boss'&&!m.done)m.progress++;});
-            const killZoneB=getZone(heightM);
+            const killZoneB=getZone(heightM, chapterTheme);
             const killPoolB=STORY_DATA.bossKillByTheme[killZoneB.theme];
             const killStoryB=killPoolB&&killPoolB.length>0?killPoolB[Math.floor(Math.random()*killPoolB.length)]:STORY_DATA.bossKill;
             try{queueStory(killStoryB);}catch(qe){console.warn('[v6.12] bossKill story err:',qe);}
@@ -3105,7 +3136,7 @@ function update(now){
         const savedSupers=enemies.filter(e=>e.type==='boss'&&e.isSuper&&e.bombShield>0);
         enemies.forEach(e=>{
           if(e.type==='boss'){
-            if(!(e.isSuper&&e.bombShield>0)){ score+=2000;bossKills++;dailyMissions.missions.forEach(m=>{if(m.type==='boss'&&!m.done)m.progress++;}); if(bossFight===e)bossFight=null; }
+            if(!(e.isSuper&&e.bombShield>0)){ score+=2000;bossKills++; onBossDefeated(); dailyMissions.missions.forEach(m=>{if(m.type==='boss'&&!m.done)m.progress++;}); if(bossFight===e)bossFight=null; }
           } else { score+=30;kills++; }
         });
         enemies=[];enemyBullets=[];
@@ -3155,6 +3186,8 @@ function update(now){
 
   // === 成就弹窗 ===
   if(achievementPopupTimer>0){achievementPopupTimer-=dt;if(achievementPopupTimer<=0)showAchievement();}
+  // v8.21: 章节过场计时
+  if(chapterAnnounce.active){chapterAnnounce.timer-=dt;if(chapterAnnounce.timer<=0)chapterAnnounce.active=false;}
   }catch(e){console.error('[update v8.3 阶段C]',e.message||e);} try{
 
   // === 子弹（原地清理） ===
@@ -3343,13 +3376,13 @@ function update(now){
             // v8.8: 击杀获取星风暴能量
             starStormGauge=Math.min(100, starStormGauge+(e.type==='boss'?15:(e.type==='large'?8:3)));
             if(feverGauge>=100&&!feverActive){feverActive=true;feverTimer=3;feverCount++;spawnParticles(player.x,player.y,30,'#ff0',150,.6,3);SFX.fever();}
-            if(e.type==='boss'){bossKills++;dailyMissions.missions.forEach(m=>{if(m.type==='boss'&&!m.done)m.progress++;});bossFight=null;
+            if(e.type==='boss'){bossKills++; onBossDefeated(); dailyMissions.missions.forEach(m=>{if(m.type==='boss'&&!m.done)m.progress++;});bossFight=null;
               const bossKillTexts=['⚡ BOSS 陨落！⚡','💀 甲方之王 倒下了','🔥 996 永恒帝 已被推翻','⚡ 需求黑洞 已关闭','💥 年终奖清零者 已清零','⚡ KPI终结者 已终结','🔥 无限需求体 已饱和','⚡ PUA大师 已下线'][Math.floor(Math.random()*8)];
               bossKillAnnounce={active:true,timer:2.5,text:bossKillTexts};spawnParticles(e.x,e.y,50,'#f00',200,.8,4);
               if(player.hp<player.maxHp){player.hp=Math.min(player.maxHp,player.hp+2);addScorePopup(e.x,e.y-30,'HP+2','#0f0',14);}
               dailyMissions.missions.forEach(m=>{if(m.type==='boss'&&!m.done)m.progress++;});
               // 按区域选专属击败台词
-              const killZone=getZone(heightM);
+              const killZone=getZone(heightM, chapterTheme);
               const killPool=STORY_DATA.bossKillByTheme[killZone.theme];
               const killStory=killPool&&killPool.length>0?killPool[Math.floor(Math.random()*killPool.length)]:STORY_DATA.bossKill;
               // v6.12: queueStory加保护
@@ -3681,7 +3714,7 @@ function update(now){
     enemies.push(boss);bossFight=boss;
     SFX.bossWarning();
     // Boss出场台词含区域名
-    const zone=getZone(heightM);
+    const zone=getZone(heightM, chapterTheme);
     const zoneName=zone.name;
     if(isSuper){
       // v8.18: 超级大Boss 压迫感强化 —— 全屏红警 + 强震屏 + 短定格
@@ -4110,6 +4143,28 @@ function draw(offset){
     ctx.textAlign='left';
   }
 
+  // v8.21: HUD 顶部章节显示
+  if(gameRunning){
+    ctx.fillStyle='rgba(0,255,255,0.9)';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('第 '+currentChapter+' 章 · '+getChapterName(currentChapter), W/2, 34);
+    ctx.textBaseline='alphabetic';ctx.textAlign='left';
+  }
+
+  // v8.21: 章节过场全屏横幅
+  if(chapterAnnounce.active){
+    const a=Math.min(1, chapterAnnounce.timer); // 末段淡出
+    ctx.fillStyle='rgba(0,0,20,'+(0.55*a)+')';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle='rgba(0,255,255,'+a+')';ctx.font='bold 44px sans-serif';ctx.shadowColor='#0ff';ctx.shadowBlur=20;
+    ctx.fillText(chapterAnnounce.text, W/2, H/2-30);
+    ctx.fillStyle='rgba(255,255,255,'+a+')';ctx.font='bold 26px sans-serif';ctx.shadowBlur=10;
+    ctx.fillText(chapterAnnounce.sub||'', W/2, H/2+18);
+    const zname=(getZone(0, chapterAnnounce.theme)||{}).name||'';
+    ctx.fillStyle='rgba(180,200,255,'+(a*0.8)+')';ctx.font='15px sans-serif';ctx.shadowBlur=0;
+    ctx.fillText(zname, W/2, H/2+52);
+    ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.shadowBlur=0;
+  }
+
   // 暂停按钮 (右上角)
   if(gameRunning){
     const pbSize=50,pbX2=W-pbSize-12,pbY2=12;
@@ -4164,7 +4219,7 @@ function draw(offset){
   ctx.strokeStyle='rgba(0,200,255,0.2)';ctx.strokeRect(pbX-1,pbY-1,pbW+2,6);
   ctx.fillStyle='#0cf';ctx.fillRect(pbX,pbY,pbW*progressToBoss,4);
   ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='9px sans-serif';ctx.textAlign='center';
-  ctx.fillText('BOSS: '+Math.floor(nextBossAt-heightM)+'m',W/2,pbY-4);
+  ctx.fillText('第'+currentChapter+'章 BOSS: '+Math.floor(nextBossAt-heightM)+'m',W/2,pbY-4);
   ctx.textAlign='left';
 
   // 道具状态
@@ -4537,7 +4592,9 @@ function startGame(){
   weapon3Start=0;weapon3Distance=0;
   maxDronesThisGame=0;
   weather={type:'clear',timer:15};dailyMissions=getDailyMissions();
-  lastZone='corporate';
+  // v8.21: 章节重置
+  currentChapter=1;chapterTheme=getChapterTheme(1);lastZone='corporate';
+  chapterAnnounce={active:false,timer:0,text:'',sub:'',theme:'corporate'};
 
   initBg();
   document.getElementById('menu').style.display='none';
@@ -4553,6 +4610,8 @@ function startGame(){
 
   // 开场剧情（v6.8: 直接用queueStory，无需外层setTimeout）
   queueStory(STORY_DATA.start);
+  // v8.21: 开局章节过场
+  chapterAnnounce={active:true,timer:3.0,text:'第 1 章',sub:getChapterName(1),theme:'corporate'};
 
   // 教程
   if(!hasPlayedTutorial){
