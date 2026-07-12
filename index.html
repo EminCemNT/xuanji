@@ -293,7 +293,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v8.19';
+const GAME_VERSION = 'v8.20';
 // v8.16: DevSquad专家团审计修复22项 — 星风暴清场/炸弹Boss收尾/死亡结局剧情/无人机友方弹/普通弹Boss剧情/退出存档/描边色/凤凰翼解锁/连击清零/死代码清理等
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
@@ -1890,6 +1890,7 @@ function createEnemy(type='small', isSuper=false){
       obj.phaseThresholds=[0.8,0.6,0.4,0.2];   // 更多阶段
       obj.ampX=W*0.12;                         // 巨体缩小摆动幅度防贴边
       obj.isSuper=true;
+      obj.bombShield=2; // v8.20: 可承受2次炸弹才倒，单次只锁半血
       obj.name='【超级】'+obj.name;
     }
   }
@@ -2541,7 +2542,7 @@ function drawDrones(){
 }
 
 // ==================== 炸弹 ====================
-let _bombWave=0, _bombFlash=0, _bombCenterFlash=0;
+let _bombWave=0, _bombFlash=0, _bombCenterFlash=0, _bombUuid=0; // v8.20: 炸弹批次ID，用于超级Boss抗秒杀判定
 let _bombPx=0, _bombPy=0, _bombMaxR=0; // v8.12: 冲击波起点和最大半径
 const BOMB_SWEEP_SPEED=900; // v8.12: 冲击波扫荡速度 px/s
 
@@ -2550,6 +2551,7 @@ function useBomb(){
   bombCount--; dailyMissions.missions.forEach(m=>{if(m.type==='bomb'&&!m.done)m.progress++;});
   // v8.12: 紫色冲击波扫荡 — 从玩家位置向外扩散，敌人逐个消灭
   _bombWave=30; // 从玩家大小开始
+  _bombUuid++;  // v8.20: 新批次炸弹，用于在超级Boss上每轮只作用一次
   _bombMaxR=Math.hypot(W,H)*0.8; // 覆盖全屏
   _bombPx=player.x; _bombPy=player.y;
   _bombFlash=0.35; // 紫色闪光
@@ -3056,7 +3058,20 @@ function update(now){
           spawnParticles(e.x,e.y,10,'#fff',80,.3,2);
           spawnParticles(e.x,e.y,8,'#c0f',60,.2,2);
           if(e.type==='boss'){
-            // 复用与激光/普通子弹击杀 Boss 一致的统一步骤：2000分、bossKills++、掉道具、触发剧情与成就
+            // v8.20: 超级大Boss抗秒杀 —— 需2次炸弹才倒，单次只锁半血不击杀
+            if(e.isSuper && e.bombShield>0 && e._bombUuid!==_bombUuid){
+              e._bombUuid=_bombUuid;
+              e.bombShield--;
+              if(e.bombShield>0){
+                e.hp=e.maxHp*0.5; // 第一次炸弹：锁半血，不击杀
+                spawnParticles(e.x,e.y,30,'#c0f',150,.6,4);
+                screenShakeTrauma=Math.min(1,screenShakeTrauma+.4);hitStop=.1;
+                addScorePopup(e.x,e.y-30,'🛡️ 抵御一次!','#c0f',18);
+                continue; // 未到2次：不击杀、不移除，继续存活
+              }
+              // bombShield 降到0：第二次炸弹，落到下方统一收尾击杀
+            }
+            // 普通Boss / 已达2次炸弹的超级Boss：复用统一收尾（2000分/bossKills++/掉道具/剧情/成就）
             score+=2000;bossKills++;
             dailyMissions.missions.forEach(m=>{if(m.type==='boss'&&!m.done)m.progress++;});
             bossFight=null;
@@ -3086,9 +3101,16 @@ function update(now){
       }
       // 冲击波覆盖全屏后收尾
       if(_bombWave>_bombMaxR){
-        enemies.forEach(e=>{ if(e.type==='boss'){score+=2000;bossKills++;dailyMissions.missions.forEach(m=>{if(m.type==='boss'&&!m.done)m.progress++;});bossFight=null;} else {score+=30;kills++;} });
+        // v8.20: 超级Boss未扛够2次炸弹则保留，不被清场秒掉
+        const savedSupers=enemies.filter(e=>e.type==='boss'&&e.isSuper&&e.bombShield>0);
+        enemies.forEach(e=>{
+          if(e.type==='boss'){
+            if(!(e.isSuper&&e.bombShield>0)){ score+=2000;bossKills++;dailyMissions.missions.forEach(m=>{if(m.type==='boss'&&!m.done)m.progress++;}); if(bossFight===e)bossFight=null; }
+          } else { score+=30;kills++; }
+        });
         enemies=[];enemyBullets=[];
         _delayedBullets=[];_delayedWaves=[];
+        savedSupers.forEach(s=>enemies.push(s)); // 恢复未达标超级Boss，继续存活
         _bombWave=0;
         addScorePopup(W/2,H*.3+60,'全部清除！','#c0f',22);
       }
@@ -3439,10 +3461,16 @@ function update(now){
       const e=enemies[ei];
       if(Math.abs(player.x-e.x)<e.w/2+18&&Math.abs(player.y-e.y)<e.h/2+18){
         if(player.invincible>0||player.shieldTimer>0){
-          e.hp=0;spawnParticles(e.x,e.y,15,'#fff',100,.4,3);
-          score+=e.score;kills++;addScorePopup(e.x,e.y-10,'+'+e.score,'#fff',16);
-          feverGauge=Math.min(100,feverGauge+10);
-          enemies.splice(ei,1);
+          if(e.isSuper){
+            // v8.20: 超级Boss不被护盾撞击秒杀，仅视觉反馈，不移除不掉落
+            spawnParticles(e.x,e.y,15,'#fff',100,.4,3);
+            addScorePopup(e.x,e.y-10,'🛡️ 不可摧','#fff',16);
+          } else {
+            e.hp=0;spawnParticles(e.x,e.y,15,'#fff',100,.4,3);
+            score+=e.score;kills++;addScorePopup(e.x,e.y-10,'+'+e.score,'#fff',16);
+            feverGauge=Math.min(100,feverGauge+10);
+            enemies.splice(ei,1);
+          }
         } else {
           // v8.8: 扣血+无敌帧+强打击感
           player.hp--;player.invincible=2.0;player.damageFlash=.25;combo=0;
