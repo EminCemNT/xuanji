@@ -231,6 +231,9 @@ canvas{display:block;width:100%;height:100%;}
   <div class="go-panel">
     <div class="go-title" id="go-title">坠落了...</div>
     <div class="go-sub" id="go-cause">被击中了</div>
+    <div id="go-rank" style="display:none;font-family:monospace;font-weight:900;letter-spacing:1px;margin:10px auto 6px;width:74px;height:74px;line-height:72px;text-align:center;border-radius:50%;font-size:36px;background:rgba(0,0,0,.25);"></div>
+    <div id="go-rank-label" style="display:none;font-size:12px;font-weight:700;margin-bottom:4px;"></div>
+    <div id="go-rank-best" style="display:none;font-size:11px;color:#ffd400;margin-bottom:10px;animation:blink .5s infinite;">✨ 生涯最佳评级！</div>
     <div class="go-stat"><span>最高高度</span><span id="go-height">0m</span></div>
     <div class="go-stat"><span>总得分</span><span id="go-score">0</span></div>
     <div class="go-stat"><span>击杀数</span><span id="go-kills">0</span></div>
@@ -295,7 +298,8 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v8.21';
+const GAME_VERSION = 'v8.22';
+// v8.22: 战绩评级系统(S+/S/A/B/C/D)综合评分 + 分享卡升级(评级徽章/章节/皮肤/难度)
 // v8.16: DevSquad专家团审计修复22项 — 星风暴清场/炸弹Boss收尾/死亡结局剧情/无人机友方弹/普通弹Boss剧情/退出存档/描边色/凤凰翼解锁/连击清零/死代码清理等
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
 // v6.9: 彻底根治卡死 — 武器升级不暂停游戏+15秒超时兜底+看门狗重构
@@ -2715,6 +2719,25 @@ function onBossDefeated(){
   chapterAnnounce={active:true,timer:3.0,text:'第 '+currentChapter+' 章',sub:getChapterName(currentChapter),theme:chapterTheme};
   addScorePopup(W/2,H*.4,'第 '+currentChapter+' 章 · '+getChapterName(currentChapter),'#0ff',24);
 }
+// ==================== 战绩评级系统 (v8.22) ====================
+// 综合评分 = 高度/50 + 得分/500 + 击杀×3 + 连击×5 + 章节×80，再乘难度系数
+const RANK_TIERS=[
+  {tier:'S+',min:1800,color:'#ff3ce0',glow:'rgba(255,60,224,.7)',label:'传说·星海主宰'},
+  {tier:'S', min:1200,color:'#ffd400',glow:'rgba(255,212,0,.7)', label:'王者·风筝之神'},
+  {tier:'A', min:800, color:'#00e5ff',glow:'rgba(0,229,255,.6)', label:'精英·破晓者'},
+  {tier:'B', min:450, color:'#4dff88',glow:'rgba(77,255,136,.5)',label:'老练·追星客'},
+  {tier:'C', min:200, color:'#c8d0e0',glow:'rgba(200,208,224,.45)',label:'新锐·逐风者'},
+  {tier:'D', min:0,   color:'#8a94a6',glow:'rgba(138,148,166,.35)',label:'萌新·纸鸢'}
+];
+const DIFF_RANK_MULT={easy:0.85,normal:1,hard:1.15,hell:1.3};
+function computeRank(score,height,kills,combo,chapter){
+  const raw=height/50 + score/500 + kills*3 + combo*5 + (chapter||1)*80;
+  const val=raw*(DIFF_RANK_MULT[currentDifficulty]||1);
+  for(const t of RANK_TIERS){ if(val>=t.min) return Object.assign({val:Math.round(val)},t); }
+  return RANK_TIERS[RANK_TIERS.length-1];
+}
+function rankIndex(tier){ return RANK_TIERS.findIndex(t=>t.tier===tier); }
+
 function gameOver(cause){
   gameRunning=false;gamePaused=false;player.alive=false;
   // v6.5.2: 关闭武器升级面板，防止状态残留
@@ -2769,6 +2792,25 @@ function gameOver(cause){
     document.getElementById('go-chapter').textContent='第 '+currentChapter+' 章';
     document.getElementById('go-coins').textContent=earned;
     document.getElementById('go-newRecord').style.display=(heightM>=recordHeight&&heightM>10)?'block':'none';
+    // v8.22: 战绩评级
+    const rk=computeRank(Math.floor(score),Math.floor(heightM),kills,maxCombo,currentChapter);
+    const rankEl=document.getElementById('go-rank');
+    rankEl.style.display='block';
+    rankEl.textContent=rk.tier;
+    rankEl.style.color=rk.color;
+    rankEl.style.border='3px solid '+rk.color;
+    rankEl.style.boxShadow='0 0 24px '+rk.glow+', inset 0 0 14px '+rk.glow;
+    rankEl.style.textShadow='0 0 12px '+rk.glow;
+    const rlEl=document.getElementById('go-rank-label');
+    rlEl.style.display='block';
+    rlEl.textContent='评级 '+rk.tier+' — '+rk.label;
+    rlEl.style.color=rk.color;
+    // 生涯最佳评级存档（index 越小越好）
+    const curIdx=rankIndex(rk.tier);
+    const bestIdx=SAVE.get('bestRankIdx',99);
+    const isBestRank=curIdx<bestIdx;
+    if(isBestRank) SAVE.set('bestRankIdx',curIdx);
+    document.getElementById('go-rank-best').style.display=(isBestRank&&heightM>10)?'block':'none';
     
     // 排行榜展示
     const goLbEl=document.getElementById('go-lb');
@@ -2799,7 +2841,7 @@ function gameOver(cause){
 function generateShareCard(score, height, kills, combo){
   try{
     const sc=document.createElement('canvas');
-    const sw=320, sh=180;
+    const sw=340, sh=232;
     sc.width=sw;sc.height=sh;
     const sx=sc.getContext('2d');
     // 背景渐变
@@ -2808,34 +2850,49 @@ function generateShareCard(score, height, kills, combo){
     sx.fillStyle=bg;sx.fillRect(0,0,sw,sh);
     // 星点
     sx.fillStyle='rgba(255,255,255,0.6)';
-    for(let i=0;i<40;i++){sx.beginPath();sx.arc(Math.random()*sw,Math.random()*sh,.8,0,Math.PI*2);sx.fill();}
+    for(let i=0;i<48;i++){sx.beginPath();sx.arc(Math.random()*sw,Math.random()*sh,.8,0,Math.PI*2);sx.fill();}
     // 顶部标题
-    sx.fillStyle='#0cf';sx.font='bold 14px monospace';sx.textAlign='center';
-    sx.fillText('⭐ 星际风筝传说 '+GAME_VERSION+' ⭐',sw/2,22);
-    // 分割线
+    sx.fillStyle='#0cf';sx.font='bold 13px monospace';sx.textAlign='center';
+    sx.fillText('⭐ 星际风筝传说 '+GAME_VERSION+' ⭐',sw/2,20);
     sx.strokeStyle='rgba(0,200,255,0.3)';sx.lineWidth=1;
-    sx.beginPath();sx.moveTo(20,30);sx.lineTo(sw-20,30);sx.stroke();
-    // 高度大字
-    sx.fillStyle='#fff';sx.font='bold 36px monospace';sx.textAlign='center';
-    sx.fillText(height+'m',sw/2,72);
-    sx.fillStyle='rgba(255,255,255,0.5)';sx.font='11px monospace';
-    sx.fillText('飞行高度',sw/2,88);
-    // 三列数据
+    sx.beginPath();sx.moveTo(20,28);sx.lineTo(sw-20,28);sx.stroke();
+    // 评级徽章
+    const rk=computeRank(score,height,kills,combo,currentChapter);
+    const cxc=sw/2, cyc=64, cr=27;
+    sx.beginPath();sx.arc(cxc,cyc,cr,0,Math.PI*2);
+    sx.fillStyle='rgba(0,0,0,0.35)';sx.fill();
+    sx.lineWidth=3;sx.strokeStyle=rk.color;sx.stroke();
+    sx.shadowColor=rk.color;sx.shadowBlur=16;
+    sx.fillStyle=rk.color;sx.font='900 30px monospace';sx.textAlign='center';sx.textBaseline='middle';
+    sx.fillText(rk.tier,cxc,cyc+1);
+    sx.shadowBlur=0;sx.textBaseline='alphabetic';
+    // 评级文字
+    sx.fillStyle=rk.color;sx.font='bold 12px monospace';
+    sx.fillText('评级 '+rk.tier+' · '+rk.label,sw/2,108);
+    // 细线
+    sx.strokeStyle='rgba(0,200,255,0.18)';sx.beginPath();sx.moveTo(30,120);sx.lineTo(sw-30,120);sx.stroke();
+    // 三列数据: 高度/得分/击杀
     const cols=[
+      {label:'高度',val:height+'m',color:'#fff'},
       {label:'得分',val:score,color:'#ff0'},
       {label:'击杀',val:kills,color:'#f44'},
-      {label:'最大连击',val:'×'+combo,color:'#0f8'},
     ];
     cols.forEach((c,i)=>{
-      const cx=50+i*110;
+      const cx=sw/6+(i*sw/3);
       sx.fillStyle=c.color;sx.font='bold 16px monospace';sx.textAlign='center';
-      sx.fillText(c.val,cx,120);
+      sx.fillText(c.val,cx,146);
       sx.fillStyle='rgba(255,255,255,0.4)';sx.font='10px monospace';
-      sx.fillText(c.label,cx,134);
+      sx.fillText(c.label,cx,160);
     });
+    // 章节 + 连击
+    sx.fillStyle='#7cf';sx.font='bold 11px monospace';sx.textAlign='center';
+    sx.fillText('📖 第'+currentChapter+'章 '+getChapterName(currentChapter)+'   ⚡连击×'+combo,sw/2,184);
+    // 皮肤 + 难度
+    sx.fillStyle='rgba(255,255,255,0.4)';sx.font='10px monospace';
+    sx.fillText(SKINS[currentSkin].name+' · '+diffCfg.name+'难度',sw/2,202);
     // 底部版权
     sx.fillStyle='rgba(255,255,255,0.2)';sx.font='9px monospace';sx.textAlign='center';
-    sx.fillText('kodecoffee.com/i/kitelegend',sw/2,158);
+    sx.fillText('kodecoffee.com/i/kitelegend',sw/2,220);
     // 绑定到 go-share 区域
     const shareEl=document.getElementById('go-share');
     shareEl.innerHTML='';
