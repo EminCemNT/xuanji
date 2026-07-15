@@ -222,7 +222,7 @@ canvas{display:block;width:100%;height:100%;}
     <button id="btn-leaderboard" onclick="showLeaderboard()">🏆 排行榜</button>
     <div class="menu-stats" id="menu-stats"></div>
     <div class="menu-chapter" id="menu-chapter"></div>
-    <div class="menu-hint">触屏：拖拽移动（自动射击）<br>键盘：← → 移动 / B 炸弹 / E 星风暴 / Shift 集中 / P 暂停 / Q 退出</div>
+    <div class="menu-hint">触屏：拖拽移动（自动射击）· 右下角点按放炸弹/星风暴<br>键盘：← → 移动 / B 炸弹 / E 星风暴 / Shift 集中 / P 暂停 / Q 退出</div>
   </div>
   <div class="menu-version" id="menu-version"></div>
 </div>
@@ -299,7 +299,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v8.22';
+const GAME_VERSION = 'v8.23';
 // v8.22: 战绩评级系统(S+/S/A/B/C/D)综合评分 + 分享卡升级(评级徽章/章节/皮肤/难度)
 // v8.16: DevSquad专家团审计修复22项 — 星风暴清场/炸弹Boss收尾/死亡结局剧情/无人机友方弹/普通弹Boss剧情/退出存档/描边色/凤凰翼解锁/连击清零/死代码清理等
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
@@ -4247,6 +4247,9 @@ function draw(offset){
     ctx.textAlign='left';ctx.textBaseline='alphabetic';
   }
 
+  // v8.23: 屏幕技能按钮（炸弹/星风暴）— 移动端可点
+  drawSkillButtons();
+
   // 暂停遮罩
   if(gamePaused&&gameRunning){
     ctx.fillStyle='rgba(0,0,20,0.75)';ctx.fillRect(0,0,W,H);
@@ -4497,6 +4500,51 @@ function gameLoop(now){
   requestAnimationFrame(gameLoop);
 }
 
+// ==================== 屏幕技能按钮 (v8.23: 移动端可点放技能) ====================
+function skillBtnGeo(){
+  const sk=Math.max(58, Math.round(Math.min(W,H)*0.11)); // 相对尺寸，高分屏也够大
+  const by=H-sk-Math.max(22,Math.round(H*0.035));        // 底部留白，避开BOSS进度条
+  const bombX=W-sk-12;
+  const stormX=bombX-sk-10;
+  return {sk,by,bombX,stormX};
+}
+function skillButtonHit(x,y){
+  if(!gameRunning||gamePaused) return false;
+  const g=skillBtnGeo();
+  if(y<g.by||y>g.by+g.sk) return false;
+  if(x>g.bombX&&x<g.bombX+g.sk){ if(bombCount>0) useBomb(); return true; }
+  if(x>g.stormX&&x<g.stormX+g.sk){ if(starStormGauge>=100&&!starStormActive) activateStarStorm(); return true; }
+  return false;
+}
+function drawSkillButtons(){
+  if(!gameRunning) return;
+  const {sk,by,bombX,stormX}=skillBtnGeo();
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  // --- 炸弹按钮 ---
+  const bombOk=bombCount>0;
+  ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(bombX,by,sk,sk);
+  ctx.strokeStyle=bombOk?'rgba(200,80,255,0.9)':'rgba(120,120,120,0.45)';ctx.lineWidth=3;ctx.strokeRect(bombX,by,sk,sk);
+  ctx.globalAlpha=bombOk?1:0.45;
+  ctx.font=Math.round(sk*0.42)+'px sans-serif';ctx.fillStyle='#fff';
+  ctx.fillText('💣',bombX+sk/2,by+sk*0.38);
+  ctx.font='bold '+Math.round(sk*0.2)+'px sans-serif';ctx.fillStyle=bombOk?'#e0a0ff':'#999';
+  ctx.fillText('炸弹×'+bombCount,bombX+sk/2,by+sk*0.78);
+  ctx.globalAlpha=1;
+  // --- 星风暴按钮 ---
+  const stormReady=starStormGauge>=100&&!starStormActive;
+  ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(stormX,by,sk,sk);
+  if(stormReady){const pulse=Math.sin(frameCount*.15)*.3+.7;ctx.strokeStyle='rgba(0,255,255,'+pulse+')';ctx.shadowColor='#0ff';ctx.shadowBlur=14;}
+  else ctx.strokeStyle='rgba(0,160,220,0.6)';
+  ctx.lineWidth=3;ctx.strokeRect(stormX,by,sk,sk);ctx.shadowBlur=0;
+  ctx.globalAlpha=stormReady?1:0.6;
+  ctx.font=Math.round(sk*0.42)+'px sans-serif';ctx.fillStyle='#fff';
+  ctx.fillText('🌟',stormX+sk/2,by+sk*0.38);
+  ctx.font='bold '+Math.round(sk*0.2)+'px sans-serif';ctx.fillStyle=stormReady?'#0ff':'#5cf';
+  ctx.fillText(stormReady?'就绪!':(Math.floor(starStormGauge)+'%'),stormX+sk/2,by+sk*0.78);
+  ctx.globalAlpha=1;
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';
+}
+
 // ==================== 输入 ====================
 let isTouching=false,touchId=null,shooting=false;
 
@@ -4516,6 +4564,8 @@ canvas.addEventListener('touchstart',e=>{
     quitGame();
     return;
   }
+  // v8.23: 技能按钮（炸弹/星风暴）
+  if(skillButtonHit(tx,ty)) return;
   // 暂停时按钮区域
   if(gamePaused){
     const btnW=140,btnH=48,cx=W/2,cy=H/2+30;
@@ -4564,6 +4614,8 @@ canvas.addEventListener('mousedown',e=>{
     quitGame();
     return;
   }
+  // v8.23: 技能按钮（炸弹/星风暴）
+  if(skillButtonHit(mx,my)) return;
   // 暂停时按钮区域
   if(gamePaused){
     const btnW=140,btnH=48,cx=W/2,cy=H/2+30;
