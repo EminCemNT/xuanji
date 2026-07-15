@@ -299,7 +299,7 @@ canvas{display:block;width:100%;height:100%;}
 // 星际风筝传说 v6.0 — 性能大修：绝对坐标渲染去save/restore + FPS系统修复
 // 基于 Raiden 雷电 × 独立游戏果汁设计
 // ============================================================
-const GAME_VERSION = 'v8.23';
+const GAME_VERSION = 'v8.24';
 // v8.22: 战绩评级系统(S+/S/A/B/C/D)综合评分 + 分享卡升级(评级徽章/章节/皮肤/难度)
 // v8.16: DevSquad专家团审计修复22项 — 星风暴清场/炸弹Boss收尾/死亡结局剧情/无人机友方弹/普通弹Boss剧情/退出存档/描边色/凤凰翼解锁/连击清零/死代码清理等
 // v6.10: 终极NaN防御 — dt/坐标/计时器全面防NaN+看门狗取消story豁免
@@ -3764,7 +3764,7 @@ function update(now){
   // === Boss生成 ===
   // 安全网：bossFight引用指向的对象不在敌人数组里时，清除引用
   if(bossFight && !enemies.includes(bossFight)) bossFight=null;
-  if(heightM>=nextBossAt&&!bossFight){
+  if(heightM>=nextBossAt&&!bossFight&&_bombWave<=0){
     bossSpawnCount++;
     const isSuper = bossSpawnCount % 3 === 0;   // v8.18: 每第3个Boss为超级大Boss
     const boss=createEnemy('boss', isSuper);
